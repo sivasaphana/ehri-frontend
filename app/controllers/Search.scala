@@ -95,6 +95,7 @@ object Search extends EntitySearch {
     } yield chunk.flatMap((i: Option[Item]) => i.toList)
 
 
+
     def buffer(count: Int, list: List[Item] = Nil): Iteratee[Option[Item], List[Item]] = Cont {
       case Input.El(Some(obj)) => if (list.size < count) buffer(count, list ::: List(obj))
                             else buffer(count, List(obj))
@@ -103,18 +104,16 @@ object Search extends EntitySearch {
       case in @ Input.EOF => Done(list, in)
     }
 
-    def extractAndPrint(chan: Concurrent.Channel[String]) = {
-      extractor ><> parseItem ><> printItem(chan)
-    }
+    def extractAndPrint(chan: Concurrent.Channel[String])
+          = extractor ><> parseItem ><> printItem(chan)
 
-    def getHandler(chan: Concurrent.Channel[String]) = {
-      val handler: (ResponseHeaders) => Iteratee[Array[Byte], Errors => Errors] = { rh =>
-        Encoding.decode()
-          .transform(
+    def getHandler(chan: Concurrent.Channel[String]): (ResponseHeaders) => Iteratee[Array[Byte], Errors => Errors] = { rh =>
+      Encoding.decode().compose(Enumeratee.onIterateeDone({ () =>
+          chan.push("Done!\n")
+          chan.eofAndEnd()
+      })).transform(
               extractAndPrint(chan)
                 .transform(Iteratee.getChunks[String].map(errorList => (e: Errors) => Errors(e.id, errorList))))
-      }
-      handler
     }
 
     // .transform(Iteratee.fold[Errors => Errors, Errors](Errors())((e, f) => f(e)))
@@ -122,7 +121,7 @@ object Search extends EntitySearch {
     println("Running...")
     val channel = Concurrent.unicast[String] { chan =>
       play.api.libs.ws.WS
-          .url("http://localhost:7474/ehri/cvocVocabulary/list?limit=1000000")
+          .url("http://localhost:7474/ehri/repository/list?limit=1000000")
           .withHeaders(HeaderNames.ACCEPT -> ContentTypes.JSON).get(getHandler(chan)).map { r =>
       }
     }
