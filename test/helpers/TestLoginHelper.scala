@@ -1,8 +1,7 @@
 package helpers
 
-import controllers.routes
+import globalconfig.RunConfiguration
 import play.api.http.{MimeTypes, HeaderNames}
-import play.api.test.FakeApplication
 import play.api.test.FakeRequest
 import play.api.test.Helpers.POST
 import play.api.test.Helpers.header
@@ -12,7 +11,16 @@ import play.filters.csrf.{CSRFFilter, CSRF}
 import play.filters.csrf.CSRF.Token
 import models.sql.{User, OpenIDUser}
 import org.mindrot.jbcrypt.BCrypt
-import mocks.UserFixtures
+import mocks.userFixtures
+import models.json.Utils
+import global.{MenuConfig, GlobalConfig}
+import controllers.base.LoginHandler
+import utils.search.{Indexer, Dispatcher}
+import play.api.Play._
+import scala.Some
+import mocks.MockSearchIndexer
+import play.api.test.FakeApplication
+import com.tzavellas.sse.guice.ScalaModule
 
 /**
  * Mixin trait that provides some handy methods to test actions that
@@ -23,18 +31,44 @@ trait TestLoginHelper {
   val fakeCsrfString = "fake-csrf-token"
   val testPassword = "testpass"
 
+  object TestConfig extends GlobalConfig {
+    val searchIndexer: Indexer = mocks.MockSearchIndexer()
+    val searchDispatcher: Dispatcher = mocks.MockSearchDispatcher()
+    val menuConfig: MenuConfig = RunConfiguration.menuConfig
+    val routeRegistry = RunConfiguration.routeRegistry
+
+    private implicit lazy val globalConfig = this
+    val loginHandler: LoginHandler = new mocks.MockLoginHandler
+  }
+
+  /**
+   * A Global object that loads fixtures on application start.
+   */
   def getGlobal: GlobalSettings = {
-    /**
-     * A Global object that loads fixtures on application start.
-     */
-    object FakeGlobal extends CSRFFilter(() => Token(fakeCsrfString)) with GlobalSettings {
+    new CSRFFilter(() => Token(fakeCsrfString)) with GlobalSettings {
+      class TestModule extends ScalaModule {
+        def configure() {
+          bind[GlobalConfig].toInstance(TestConfig)
+          bind[Indexer].toInstance(MockSearchIndexer())
+        }
+      }
+
+      private lazy val injector = {
+        com.google.inject.Guice.createInjector(new TestModule)
+      }
+
+      override def getControllerInstance[A](clazz: Class[A]) = {
+        injector.getInstance(clazz)
+      }
+
       override def onStart(app: play.api.Application) {
         // Workaround for issue #845
         app.routes
+        Utils.registerModels
+
         super.onStart(app)
       }
     }
-    FakeGlobal
   }
 
   /**
@@ -46,17 +80,12 @@ trait TestLoginHelper {
   def fakeApplication(additionalConfiguration: Map[String, Any] = Map(), global: GlobalSettings = getGlobal) = {
     FakeApplication(
       additionalConfiguration = additionalConfiguration ++ getConfig,
-      additionalPlugins = getPlugins ++ Seq("mocks.MockSearchDispatcher"),
+      additionalPlugins = getPlugins,
       withGlobal = Some(global)
     )
   }
 
-  def getConfig = Map(
-    "db.default.driver" -> "org.h2.Driver",
-    "db.default.url" -> "jdbc:h2:mem:play",
-    "db.default.user" -> "sa",
-    "db.default.password" -> ""
-  )
+  def getConfig = Map()
 
   /**
    * Get a set of plugins necessary to enable to desired login method.
@@ -117,7 +146,7 @@ trait TestLoginHelper {
  */
 trait TestMockLoginHelper extends TestLoginHelper {
 
-  override def getPlugins = Seq("mocks.MockUserDAO", "mocks.MockLoginHandler")
+  override def getPlugins = Seq("mocks.MockUserDAO")
 
   /**
    * Get a user auth cookie using the Mock login mechanism, which depends
@@ -148,7 +177,7 @@ trait TestRealLoginHelper extends TestLoginHelper {
       app.routes
 
       // Initialize user fixtures
-      UserFixtures.all.map { user =>
+      userFixtures.values.map { user =>
         OpenIDUser.findByProfileId(user.profile_id) orElse OpenIDUser.create(user.email, user.profile_id).map { u =>
           u.setPassword(BCrypt.hashpw(testPassword, BCrypt.gensalt()))
         }

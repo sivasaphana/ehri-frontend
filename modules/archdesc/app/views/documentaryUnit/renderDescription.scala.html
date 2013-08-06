@@ -1,4 +1,4 @@
-@(item: DocumentaryUnit, desc: DocumentaryUnitDescriptionF, links: List[Link])(implicit fieldPrefix: String, userOpt: Option[UserProfile], req: RequestHeader, lang: Lang)
+@(item: DocumentaryUnit, desc: DocumentaryUnitDescriptionF, links: List[Link])(implicit fieldPrefix: String, userOpt: Option[UserProfile], req: RequestHeader, globalConfig: GlobalConfig, lang: Lang)
 
 @import defines._
 @import models.IsadG._
@@ -14,7 +14,7 @@
         @common.stringValue(desc.extentAndMedium, EXTENT_MEDIUM)
     }
     @descriptionSection(CONTEXT_AREA) {
-        @common.stringValue(desc.context.adminBiogHistory, ADMIN_BIOG)
+        @common.stringValue(desc.context.biographicalHistory, ADMIN_BIOG)
         @common.stringValue(desc.context.archivalHistory, ARCH_HIST)
         @common.stringValue(desc.context.acquisition, ACQUISITION)
     }

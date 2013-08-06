@@ -12,7 +12,7 @@ import play.api.http.{MimeTypes, HeaderNames}
 
 
 class DocUnitViewsSpec extends Neo4jRunnerSpec(classOf[DocUnitViewsSpec]) {
-  import mocks.UserFixtures.{privilegedUser, unprivilegedUser}
+  import mocks.{privilegedUser, unprivilegedUser}
 
   val userProfile = UserProfile(
     model = UserProfileF(id = Some(privilegedUser.profile_id), identifier = "test", name="test user"),
@@ -52,14 +52,6 @@ class DocUnitViewsSpec extends Neo4jRunnerSpec(classOf[DocUnitViewsSpec]) {
       contentAsString(search) must contain("c2")
       contentAsString(search) must contain("c3")
       contentAsString(search) must contain("c4")
-    }
-
-    "list when logged with identifier filter in should get one" in new FakeApp {
-      val params = s"${ListParams.PROPERTY_NAME}[0]=identifier&${ListParams.PROPERTY_VALUE}[0]=c3"
-      val list = route(fakeLoggedInHtmlRequest(privilegedUser, GET, controllers.archdesc.routes.DocumentaryUnits.list.url + s"?$params")).get
-      status(list) must equalTo(OK)
-      contentAsString(list) must contain(oneItemHeader)
-      contentAsString(list) must contain("c3")
     }
 
     "link to other privileged actions when logged in" in new FakeApp {
@@ -195,7 +187,9 @@ class DocUnitViewsSpec extends Neo4jRunnerSpec(classOf[DocUnitViewsSpec]) {
         controllers.archdesc.routes.DocumentaryUnits.updatePost("c1").url).withHeaders(formPostHeaders.toSeq: _*), testData).get
       status(cr) must equalTo(SEE_OTHER)
 
-      val show = route(fakeLoggedInHtmlRequest(privilegedUser, GET, redirectLocation(cr).get)).get
+      // Get the item history page and check the message is there...
+      val show = route(fakeLoggedInHtmlRequest(privilegedUser, GET,
+        controllers.archdesc.routes.DocumentaryUnits.history("c1").url)).get
       status(show) must equalTo(OK)
       // Log message should be in the history section...
       contentAsString(show) must contain(msg)

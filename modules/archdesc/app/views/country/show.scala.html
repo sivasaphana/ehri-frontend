@@ -1,10 +1,14 @@
 @(item: Country, result: utils.search.ItemPage[(AnyModel,String)], params: utils.search.SearchParams, facets: List[utils.search.AppliedFacet], action: Call, annotations: Map[String,List[Annotation]], links: List[Link])(
-        implicit userOpt: Option[UserProfile], req: RequestHeader, lang: Lang, flash: Flash)
+        implicit userOpt: Option[UserProfile], req: RequestHeader, globalConfig: GlobalConfig, lang: Lang, flash: Flash)
 
 @rightSidebarLayout(item.toStringLang, breadcrumbs = common.breadcrumbs(List(item))) {
 
     @common.annotated(item, annotations) {
-        <p class="alert-info">TODO: Add country information here</p>
+        @item.model.report.map { report =>
+            <div class="national-report">
+                @Html(report)
+            </div>
+        }
     }
 
     @views.html.search.searchSection(Messages("country.searchInside", item.toStringAbbr)) {

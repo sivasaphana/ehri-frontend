@@ -15,18 +15,29 @@ object ApplicationBuild extends Build {
   val appName = "docview"
   val appVersion = "1.0-SNAPSHOT"
 
-  javaOptions in test += "-Xmx8G"
+  javaOptions in Test ++= Seq(
+    "-Xmx8G",
+    "-XX:+CMSClassUnloadingEnabled",
+    "-XX:MaxPermSize=256M",
+    "-Dconfig.file=conf/test.conf"
+  )
+
 
   val appDependencies = Seq(
     jdbc,
     anorm,
     filters,
 
+    // Ontology
+    "ehri-project" % "ehri-definitions" % "1.0",
+
+    // Injection guff
+    "com.google.inject" % "guice" % "3.0",
+    "com.tzavellas" % "sse-guice" % "0.7.1",
+
     "jp.t2v" %% "play21.auth" % "0.6",
     "postgresql" % "postgresql" % "9.1-901.jdbc4",
-    // Forced logback to older version due to conflict with Neo4j
-    "ch.qos.logback" % "logback-core" % "1.0.3" force(),
-    "ch.qos.logback" % "logback-classic" % "1.0.3" force(),
+    "mysql" % "mysql-connector-java" % "5.1.25",
     "org.markdownj" % "markdownj" % "0.3.0-1.0.2b4",
     "joda-time" % "joda-time" % "2.1",
     "org.mindrot" % "jbcrypt" % "0.3m",
@@ -34,12 +45,14 @@ object ApplicationBuild extends Build {
     // Solr stuff
     "com.github.seratch" %% "scalikesolr" % "4.0.0",
     // Time formatting library
-    "org.ocpsoft.prettytime" % "prettytime" % "1.0.8.Final",
-    //"com.typesafe" % "play-plugins-mailer_2.10" % "2.1-SNAPSHOT",
+    "org.ocpsoft.prettytime" % "prettytime" % "1.0.8.Final"
+  )
 
-    "ehri-project" % "ehri-definitions" % "1.0",
+  val testDependencies = Seq(
+    // Forced logback to older version due to conflict with Neo4j
+    "ch.qos.logback" % "logback-core" % "1.0.3" force(),
+    "ch.qos.logback" % "logback-classic" % "1.0.3" force(),
 
-    // Test dependencies...
     "com.sun.jersey" % "jersey-core" % "1.9" % "test",
     "ehri-project" % "ehri-frames" % "0.1-SNAPSHOT" % "test" classifier "tests" classifier "",
     "ehri-project" % "ehri-extension" % "0.0.1-SNAPSHOT" % "test" classifier "tests" classifier ""
@@ -47,7 +60,7 @@ object ApplicationBuild extends Build {
 
 
   val otherSettings = Seq(
-    templatesImport ++= Seq("models.base._", "models.forms._", "acl._", "defines._"),
+    templatesImport ++= Seq("models.base._", "models.forms._", "acl._", "defines._", "global.GlobalConfig"),
 
     resolvers += "neo4j-public-repository" at "http://m2.neo4j.org/content/groups/public",
     resolvers += "Local Maven Repository" at "file:///"+Path.userHome.absolutePath+"/.m2/repository",
@@ -74,8 +87,14 @@ object ApplicationBuild extends Build {
     settings = Defaults.defaultSettings ++ play.Project.intellijCommandSettings("SCALA")
   ).settings(otherSettings:_*).dependsOn(core)
 
-  lazy val aaMain = play.Project(appName, appVersion, appDependencies,
+  lazy val portal = play.Project(
+    appName + "-portal", appVersion, appDependencies, path = file("modules/portal"),
     settings = Defaults.defaultSettings ++ play.Project.intellijCommandSettings("SCALA")
   ).settings(otherSettings:_*).dependsOn(core, archdesc, authorities, vocabs)
     .aggregate(core, archdesc, authorities, vocabs)
+
+  lazy val aaMain = play.Project(appName, appVersion, appDependencies ++ testDependencies,
+    settings = Defaults.defaultSettings ++ play.Project.intellijCommandSettings("SCALA")
+  ).settings(otherSettings:_*).dependsOn(core, archdesc, authorities, vocabs, portal)
+    .aggregate(core, archdesc, authorities, vocabs, portal)
 }

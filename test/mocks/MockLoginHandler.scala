@@ -6,13 +6,15 @@ import play.api.mvc.Action
 import controllers.routes
 import play.api.data.Forms._
 import play.api.data.Form
+import com.google.inject.{Inject, Singleton}
 
 
 /**
  * Mock loginhandler implementation.
- * @param app
+ * @param globalConfig
  */
-class MockLoginHandler(app: play.api.Application) extends LoginHandler {
+@Singleton
+case class MockLoginHandler @Inject()(implicit globalConfig: global.GlobalConfig) extends LoginHandler {
 
   def login = Action { implicit request =>
     implicit val userOpt = None

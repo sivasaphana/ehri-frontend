@@ -10,15 +10,13 @@ import play.api.mvc._
 import concurrent.Future
 import play.api.i18n.Messages
 
-/**
- * Default object instantiation
- */
-object OpenIDLoginHandler extends OpenIDLoginHandler(play.api.Play.current)
+import com.google.inject._
 
 /**
  * OpenID login handler implementation.
  */
-class OpenIDLoginHandler(app: play.api.Application) extends LoginHandler {
+@Singleton
+class OpenIDLoginHandler @Inject()(implicit val globalConfig: global.GlobalConfig) extends LoginHandler {
 
   import models.sql._
 
@@ -61,7 +59,6 @@ class OpenIDLoginHandler(app: play.api.Application) extends LoginHandler {
             Async {
               rest.AdminDAO(userProfile = None).createNewUserProfile.map {
                 case Right(entity) => {
-                  println("GOT ENTITY: " + entity)
                   models.sql.OpenIDUser.create(email.toLowerCase, entity.id).map { user =>
                     user.addAssociation(info.id)
                     gotoLoginSucceeded(user.profile_id)
