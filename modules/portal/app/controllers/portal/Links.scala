@@ -4,7 +4,7 @@ import backend.Backend
 import com.google.inject.{Inject, Singleton}
 import controllers.base.SessionPreferences
 import controllers.generic.Search
-import controllers.portal.base.{Generic, PortalController}
+import controllers.portal.base.{Get, PortalController}
 import models.{Link, AccountDAO, Group}
 import utils.SessionPrefs
 import utils.search._
@@ -17,7 +17,7 @@ import views.html.p
 case class Links @Inject()(implicit globalConfig: global.GlobalConfig, searchDispatcher: Dispatcher, searchResolver: Resolver, backend: Backend,
                                   userDAO: AccountDAO)
   extends PortalController
-  with Generic[Link]
+  with Get[Link]
   with Search
   with FacetConfig {
 

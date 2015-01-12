@@ -15,14 +15,14 @@ import utils._
 
 import com.google.inject._
 import scala.concurrent.Future
-import controllers.portal.base.{Generic, PortalController}
+import controllers.portal.base.{Get, PortalController}
 
 
 @Singleton
 case class VirtualUnits @Inject()(implicit globalConfig: global.GlobalConfig, searchDispatcher: Dispatcher, searchResolver: Resolver, backend: Backend,
     userDAO: AccountDAO, idGenerator: IdGenerator)
   extends PortalController
-  with Generic[VirtualUnit]
+  with Get[VirtualUnit]
   with Search
   with FacetConfig {
 

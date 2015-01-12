@@ -4,7 +4,6 @@ import utils.search._
 import play.api.libs.json.JsValue
 import defines.EntityType
 import utils.search.SearchHit
-import play.api.Logger
 
 /**
  * Extracts useful data from a Solr JSON response.

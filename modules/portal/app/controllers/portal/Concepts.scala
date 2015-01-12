@@ -4,7 +4,7 @@ import backend.{Backend, IdGenerator}
 import com.google.inject.{Inject, Singleton}
 import controllers.base.SessionPreferences
 import controllers.generic.Search
-import controllers.portal.base.{Generic, PortalController}
+import controllers.portal.base.{Get, PortalController}
 import defines.EntityType
 import models.{Concept, AccountDAO, Country, Repository}
 import play.api.libs.concurrent.Execution.Implicits._
@@ -19,7 +19,7 @@ import views.html.p
 case class Concepts @Inject()(implicit globalConfig: global.GlobalConfig, searchDispatcher: Dispatcher, searchResolver: Resolver, backend: Backend,
                                   userDAO: AccountDAO)
   extends PortalController
-  with Generic[Concept]
+  with Get[Concept]
   with Search
   with FacetConfig {
 

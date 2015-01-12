@@ -12,7 +12,7 @@ import scala.concurrent.Future
 /**
  * @author Mike Bryant (http://github.com/mikesname)
  */
-trait Generic[MT] extends Read[MT] {
+trait Get[MT] extends Read[MT] {
   this: PortalController =>
 
   case class ItemBrowseRequest[A](
@@ -24,7 +24,7 @@ trait Generic[MT] extends Read[MT] {
     request: Request[A]                                
   ) extends WrappedRequest[A](request)
     with WithOptionalUser
-  
+
   def GetItemAction(id: String)(implicit ct: BackendContentType[MT]) =
     ItemPermissionAction(id) andThen new ActionTransformer[ItemPermissionRequest, ItemBrowseRequest] {
       override protected def transform[A](request: ItemPermissionRequest[A]): Future[ItemBrowseRequest[A]] = {
