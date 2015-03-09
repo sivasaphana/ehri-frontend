@@ -102,6 +102,7 @@ case class Accounts @Inject()(implicit globalConfig: GlobalConfig, searchEngine:
       status(
         views.html.account.login(
           passwordLoginForm,
+          remembermeForm,
           form,
           accountRoutes.signupPost(),
           recaptchaKey,
@@ -178,6 +179,7 @@ case class Accounts @Inject()(implicit globalConfig: GlobalConfig, searchEngine:
         BadRequest(
           views.html.account.login(
             passwordLoginForm,
+            remembermeForm,
             SignupData.form,
             accountRoutes.signupPost(),
             recaptchaKey,
@@ -202,6 +204,7 @@ case class Accounts @Inject()(implicit globalConfig: GlobalConfig, searchEngine:
         case None =>
           Ok(views.html.account.login(
             passwordLoginForm,
+            remembermeForm,
             SignupData.form,
             accountRoutes.signupPost(),
             recaptchaKey,
@@ -219,6 +222,7 @@ case class Accounts @Inject()(implicit globalConfig: GlobalConfig, searchEngine:
     BadRequest(
       views.html.account.login(
         passwordLoginForm,
+        remembermeForm,
         SignupData.form,
         accountRoutes.signupPost(),
         recaptchaKey,
@@ -236,6 +240,7 @@ case class Accounts @Inject()(implicit globalConfig: GlobalConfig, searchEngine:
       status(
         views.html.account.login(
           f,
+          remembermeForm,
           SignupData.form,
           accountRoutes.signupPost(),
           recaptchaKey,
@@ -251,7 +256,10 @@ case class Accounts @Inject()(implicit globalConfig: GlobalConfig, searchEngine:
       badForm(boundForm.withGlobalError(rateLimitError), TooManyRequest)
     } else request.formOrAccount match {
       case Left(errorForm) => badForm(errorForm)
-      case Right(account) => doLogin(account)
+      case Right(account) =>
+        val rememberme = remembermeForm.bindFromRequest()
+        val req = request.copy(tags = request.tags + ("rememberme" -> rememberme.get.toString))
+        doLogin(account)(req).map(_.withSession("rememberme" -> rememberme.get.toString))
     }
   }
 

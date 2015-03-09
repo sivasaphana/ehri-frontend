@@ -59,7 +59,7 @@ object ApplicationBuild extends Build {
     "com.google.inject" % "guice" % "4.0-beta",
 
     // Authentication
-    "jp.t2v" %% "play2-auth" % "0.13.0",
+    "jp.t2v" %% "play2-auth" % "0.13.1-SNAPSHOT",
 
     // Password hashing
     "org.mindrot" % "jbcrypt" % "0.3m",
@@ -92,7 +92,7 @@ object ApplicationBuild extends Build {
   )
 
   val testDependencies = backendTestDependencies ++ Seq(
-    "jp.t2v" %% "play2-auth-test" % "0.13.0" % "test"
+    "jp.t2v" %% "play2-auth-test" % "0.13.1-SNAPSHOT" % "test"
   )
 
   val additionalResolvers = Seq(
@@ -101,6 +101,7 @@ object ApplicationBuild extends Build {
     "Codahale" at "http://repo.codahale.com",
     "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/",
     Resolver.sonatypeRepo("releases"),
+    Resolver.sonatypeRepo("snapshots"),
     "EHRI Snapshots" at "http://ehridev.dans.knaw.nl/artifactory/libs-snapshot/"
   )
 

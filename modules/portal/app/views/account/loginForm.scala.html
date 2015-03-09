@@ -1,4 +1,5 @@
-@(pwForm: Form[(String,String)])(implicit request: RequestHeader, globalConfig: global.GlobalConfig, flash: Flash, lang: Lang, token: play.filters.csrf.CSRF.Token, fieldConstructor: helper.FieldConstructor)
+@(pwForm: Form[(String,String)], rememberme: Form[Boolean])(implicit request: RequestHeader, globalConfig: global
+.GlobalConfig, flash: Flash, lang: Lang, token: play.filters.csrf.CSRF.Token, fieldConstructor: helper.FieldConstructor)
 
 @helper.form(action = controllers.portal.account.routes.Accounts.passwordLoginPost(), 'class -> "login-form form validate-form", 'role -> "form") {
     @formHelpers.csrfToken()
@@ -6,6 +7,13 @@
 
     @helper.inputText(pwForm("email"), 'class -> "form-control", 'autofocus -> "autofocus", 'placeholder -> Messages("login.email"), 'type -> "email", 'required -> "required")
     @helper.inputPassword(pwForm("password"), 'class -> "form-control", 'placeholder -> Messages("login.password"), 'required -> "required")
+    <div class="form-control">
+        <label for="id_rememberme">
+            <input id="id_rememberme" type="checkbox" name="rememberme" value="true" @if(rememberme.value.exists(_ ==
+            true)) {checked="checked"}  />
+            Remember me for 1 week
+        </label>
+    </div>
 
     <p>
         <a class="forgot-password-link" href="@controllers.portal.account.routes.Accounts.forgotPassword()">@Messages("login.recover.link")</a>

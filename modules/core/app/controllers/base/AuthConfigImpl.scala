@@ -58,6 +58,8 @@ trait AuthConfigImpl extends AuthConfig with Results {
   override lazy val sessionTimeoutInSeconds: Int =
     current.configuration.getInt("auth.session.timeout").getOrElse(60 * 60 * 24) // default 1 day
 
+  override lazy val tokenAccessor = new RememberMeTokenAccessor(sessionTimeoutInSeconds)
+
   /**
    * A `ClassManifest` is used to get an id from the Cache API.
    * Basically use the same setting as the following.
