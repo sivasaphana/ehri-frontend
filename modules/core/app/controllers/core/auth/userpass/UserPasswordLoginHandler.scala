@@ -27,6 +27,10 @@ trait UserPasswordLoginHandler {
 
   val accounts: auth.AccountManager
 
+  val remembermeForm = Form {
+    "rememberme" -> boolean
+  }
+
   val passwordLoginForm = Form(
     tuple(
       "email" -> email,
@@ -59,6 +63,7 @@ trait UserPasswordLoginHandler {
   protected def UserPasswordLoginAction = new ActionBuilder[UserPasswordLoginRequest] {
     override def invokeBlock[A](request: Request[A], block: (UserPasswordLoginRequest[A]) => Future[Result]): Future[Result] = {
       implicit val r = request
+      val rememberme = remembermeForm.bindFromRequest
       val boundForm = passwordLoginForm.bindFromRequest
       boundForm.fold(
         errorForm => block(UserPasswordLoginRequest(Left(errorForm), request)),
@@ -68,6 +73,7 @@ trait UserPasswordLoginHandler {
             case Some(account) =>
               // Legacy accounts have an MD5 password encoded via BCrypt, so
               // we need to re-save this and untag them as legacy.
+              val remember = rememberme.get.toString
               if (account.isLegacy) {
                 Logger.logger.info("Updating legacy account for user: {}", account.id)
                 accounts.update(account = account.copy(
@@ -78,7 +84,8 @@ trait UserPasswordLoginHandler {
                 }
               } else {
                 Logger.logger.info("User logged in via password: {}", account.id)
-                block(UserPasswordLoginRequest(Right(account), request))
+                block(UserPasswordLoginRequest(Right(account), r))
+                  .map(_.withSession("rememberme" -> remember))
               }
             case None =>
               block(UserPasswordLoginRequest(Left(boundForm
