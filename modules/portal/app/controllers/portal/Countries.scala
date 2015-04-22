@@ -19,10 +19,14 @@ case class Countries @Inject()(implicit globalConfig: global.GlobalConfig, searc
                                   accounts: AccountManager, pageRelocator: utils.MovedPageLookup)
   extends PortalController
   with Generic[Country]
+  with Api[Country]
   with Search
   with FacetConfig {
 
   private val portalCountryRoutes = controllers.portal.routes.Countries
+
+  def searchAllJson() = apiSearchAllJson(item => portalCountryRoutes.getJson(item.id).url)
+  def getJson(id: String) = apiGetJson(id)
 
   def searchAll = UserBrowseAction.async { implicit request =>
     findType[Country](facetBuilder = countryFacets).map { result =>

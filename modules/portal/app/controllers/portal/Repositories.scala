@@ -20,10 +20,14 @@ case class Repositories @Inject()(implicit globalConfig: global.GlobalConfig, se
                                   accounts: AccountManager, pageRelocator: utils.MovedPageLookup)
   extends PortalController
   with Generic[Repository]
+  with Api[Repository]
   with Search
   with FacetConfig {
 
   private val portalRepoRoutes = controllers.portal.routes.Repositories
+
+  def searchAllJson() = apiSearchAllJson(item => portalRepoRoutes.getJson(item.id).url)
+  def getJson(id: String) = apiGetJson(id)
 
   private def filters(id: String)(implicit request: RequestHeader): Map[String,Any] =
     (if (!hasActiveQuery(request)) Map(SearchConstants.TOP_LEVEL -> true)

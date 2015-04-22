@@ -2,6 +2,7 @@ package controllers.portal
 
 import auth.AccountManager
 import models.base.AnyModel
+import play.api.http.Writeable
 import play.api.libs.concurrent.Execution.Implicits._
 import backend.Backend
 import com.google.inject.{Inject, Singleton}
@@ -9,7 +10,7 @@ import controllers.generic.Search
 import controllers.portal.base.{Generic, PortalController}
 import defines.EntityType
 import models.DocumentaryUnit
-import play.api.mvc.RequestHeader
+import play.api.mvc.{Codec, Call, RequestHeader}
 import utils.search._
 
 import scala.concurrent.Future.{successful => immediate}
@@ -22,10 +23,14 @@ case class DocumentaryUnits @Inject()(implicit globalConfig: global.GlobalConfig
                                   accounts: AccountManager, pageRelocator: utils.MovedPageLookup)
   extends PortalController
   with Generic[DocumentaryUnit]
+  with Api[DocumentaryUnit]
   with Search
   with FacetConfig {
 
   private val portalDocRoutes = controllers.portal.routes.DocumentaryUnits
+
+  def searchAllJson() = apiSearchAllJson(item => portalDocRoutes.getJson(item.id).url)
+  def getJson(id: String) = apiGetJson(id)
 
   private def filterKey(implicit request: RequestHeader): String =
     if (!hasActiveQuery(request)) SearchConstants.PARENT_ID else SearchConstants.ANCESTOR_IDS
