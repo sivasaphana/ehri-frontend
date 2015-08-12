@@ -369,7 +369,8 @@ case class Guides @Inject()(
         display = FacetDisplay.DropDown,
         render = upcaseFirst,
         sort = FacetSort.Name,
-        limit = Some(-1)
+        limit = Some(-1),
+        minCount = Some(3)
       ),
       FieldFacetClass(
         key = "places",
@@ -378,7 +379,8 @@ case class Guides @Inject()(
         display = FacetDisplay.DropDown,
         render = upcaseFirst,
         sort = FacetSort.Name,
-        limit = Some(-1)
+        limit = Some(-1),
+        minCount = Some(3)
       ),
       FieldFacetClass(
         key = "corporateBodies",
@@ -387,7 +389,8 @@ case class Guides @Inject()(
         display = FacetDisplay.DropDown,
         render = upcaseFirst,
         sort = FacetSort.Name,
-        limit = Some(-1)
+        limit = Some(-1),
+        minCount = Some(3)
       ),
       FieldFacetClass(
         key = "subjects",
@@ -396,7 +399,8 @@ case class Guides @Inject()(
         display = FacetDisplay.DropDown,
         render = upcaseFirst,
         sort = FacetSort.Name,
-        limit = Some(-1)
+        limit = Some(-1),
+        minCount = Some(3)
       )
     )
   }
