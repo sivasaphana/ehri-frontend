@@ -29,16 +29,43 @@ object SolrFacetParser {
   def fullKey(fc: FacetClass[_]): String =
     if (fc.multiSelect) s"{!ex=${fc.key}}${fc.key}" else fc.key
 
-  def facetAsParams(fc: FacetClass[_]): Seq[FacetParam] = fc match {
-    case ffc: FieldFacetClass => Seq(new FacetParam(
-      Param("facet.field"),
-      Value(fullKey(ffc))
-    ))
-    case qfc: QueryFacetClass => qfc.facets.map(p =>
-      new FacetParam(
-        Param("facet.query"),
-        Value(s"${fullKey(qfc)}:${facetValue(p)}")
+  def facetAsParams(fc: FacetClass[_]): Seq[FacetParam] = {
+    var params = fc match {
+      case ffc: FieldFacetClass => Seq(new FacetParam(
+        Param("facet.field"),
+        Value(fullKey(ffc))
+      ))
+      case qfc: QueryFacetClass => qfc.facets.map(p =>
+        new FacetParam(
+          Param("facet.query"),
+          Value(s"${fullKey(qfc)}:${facetValue(p)}")
+        )
       )
-    )
+    }
+
+    // If the facet class is sort by name (other than the default,
+    // by count) add an extra parameter to specify this.
+    if (fc.sort == FacetSort.Name) {
+      params = params :+ new FacetParam(
+        Param(s"f.${fc.key}.facet.sort"),
+        Value("index")
+      )
+    }
+
+    fc.minCount.foreach { mc =>
+      params = params :+ new FacetParam(
+        Param(s"f.${fc.key}.facet.mincount"),
+        Value(mc.toString)
+      )
+    }
+
+    fc.limit.foreach { mc =>
+      params = params :+ new FacetParam(
+        Param(s"f.${fc.key}.facet.limit"),
+        Value(mc.toString)
+      )
+    }
+
+    params
   }
 }
