@@ -65,38 +65,6 @@
     </script>
 }
 
-@selectTwo(page: GuidePage) = {
-    <div class="facet-class">
-        <h4 class="facet-label">@page.name</h4>
-        <div class="facet-options">
-            <select multiple style="width: 100%" name="kw" data-placeholder="@page.name" class="form-control facet-selected select2 autosubmit">
-                <option></option>
-                @available.getOrElse(page.content, List.empty).map { f =>
-                    <option value="@f.id">@f.toStringLang</option>
-                }
-            </select>
-        </div>
-    </div>
-}
-
-@facets = {
-    @views.html.common.search.selectedFacets(result.facetClasses, result.facets)
-    @if(available.isEmpty) {
-        <p class="small">@Messages("guides.facets.hierarchy")</p>
-    }
-    @for(otherPage <- pages.filterNot(p => GuidePage.Layout.isFreeText(p.layout))) {
-        @if(available.nonEmpty){
-            @selectTwo(otherPage)
-        } else {
-            <div class="facet-class">
-                <h4 class="facet-label">@otherPage.name</h4>
-                <div class="facet-options">
-                    <input type="text" style="width: 100%;" name="kw" data-placeholder="@otherPage.name" data-target="@controllers.portal.guides.routes.Guides.layoutRetrieval(guide.path, otherPage.path)" class="form-control select2 facet-browse autosubmit" />
-                </div>
-            </div>
-        }
-    }
-}
 
 @sidebar(page: GuidePage) = {
     <div id="facets">
@@ -113,7 +81,8 @@
                 </div>
             </div>
             @common.search.searchSort(result.params, Seq(SearchOrder.Score, SearchOrder.Name, SearchOrder.Detail))
-            @facets
+            @views.html.common.search.selectedFacets(result.facetClasses, result.facets)
+            @views.html.common.search.facetList(result.facetClasses, action)
         }
     </div>
     @page.description.map(d => Html(md.renderTrustedMarkdown(d)))

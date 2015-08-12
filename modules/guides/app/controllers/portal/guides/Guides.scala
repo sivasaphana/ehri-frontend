@@ -8,7 +8,7 @@ import javax.inject._
 import controllers.base.SearchVC
 import controllers.generic.Search
 import controllers.portal.FacetConfig
-import controllers.portal.base.PortalController
+import controllers.portal.base.{Generic, PortalController}
 import defines.EntityType
 import models.GuidePage.Layout
 import models.base.AnyModel
@@ -17,13 +17,14 @@ import play.api.cache.CacheApi
 import play.api.data.Forms._
 import play.api.data._
 import play.api.http.MimeTypes
-import play.api.i18n.MessagesApi
+import play.api.i18n.{Messages, MessagesApi}
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json._
 import play.api.mvc._
+import utils.search.SearchConstants._
 import utils.search._
 import controllers.renderError
-import views.MarkdownRenderer
+import views.{Helpers, MarkdownRenderer}
 
 import scala.concurrent.Future
 import scala.concurrent.Future.{successful => immediate}
@@ -47,6 +48,7 @@ case class Guides @Inject()(
 ) extends PortalController
   with Search
   with SearchVC
+  with Generic[VirtualUnit]
   with FacetConfig {
 
   val ajaxOrder = utils.search.SearchOrder.Name
@@ -352,137 +354,75 @@ case class Guides @Inject()(
   }
 
   /*
-   *   Faceted request
-   */
-  private def searchFacets(guide: Guide, ids: Seq[String]): Future[Seq[Long]] = {
-    val query =
-      s"""
-        START 
-          virtualUnit = node:entities(__ID__= {guide}), 
-          accessPoints = node:entities({guideFacets})
-        MATCH 
-             (link)-[:inContextOf]->virtualUnit,
-            (doc)<-[:hasLinkTarget]-(link)-[:hasLinkTarget]->accessPoints
-         WHERE doc.__ISA__ = "documentaryUnit"
-         WITH collect(accessPoints.__ID__) AS accessPointsId, doc
-         WHERE ALL (x IN {accesslist} 
-                   WHERE x IN accessPointsId)
-         RETURN ID(doc)
-        """.stripMargin
-    cypher.cypher(query, Map(
-      /* All IDS */
-      "guide" -> JsString(guide.virtualUnit),
-      "accesslist" -> Json.toJson(ids),
-      "guideFacets" -> JsString(getFacetQuery(ids))
-      /* End IDS */
-    )).map { r =>
-      (r \ "data").as[Seq[Seq[Long]]].flatten
-    }
-  }
+  *   Faceted search
+  */
 
-  /*
-   * Function to get items
-   */
-  private def otherFacets(guide: Guide, ids: Seq[Long]): Future[Seq[Long]] = {
-    val query =
-      s"""
-        START 
-          virtualUnit = node:entities(__ID__= {guide}), 
-          doc = node({docList})
-        MATCH 
-             (link)-[:inContextOf]->virtualUnit,
-            doc<-[:hasLinkTarget]-(link)-[:hasLinkTarget]->(accessPoints)
-          WHERE doc <> accessPoints
-         RETURN DISTINCT ID(accessPoints)
-        """.stripMargin
-    cypher.cypher(query, Map(
-      /* All IDS */
-      "guide" -> JsString(guide.virtualUnit),
-      "docList" -> Json.toJson(ids)
-      /* End IDS */
-    )).map { r =>
-      (r \ "data").as[Seq[Seq[Long]]].flatten
-    }
-  }
-
-  private def facetSlice(ids: Seq[Long], page: Int, limit: Int): Seq[Long] = {
-    val pages = facetPage(page, limit, ids.size)
-    ids.slice(pages._1, pages._2)
-  }
-
-  private def pagify[T](docs: SearchResult[T], accessPoints: Seq[AnyModel]): SearchResult[T] = {
-    docs.copy(
-      facets = docs.facets ++ (if (accessPoints.nonEmpty)
-        Seq(AppliedFacet("kw", accessPoints.map(_.id)))
-      else Seq.empty),
-      facetClasses = docs.facetClasses ++ Seq(
-        FieldFacetClass(
-          param = "kw",
-          name = "Keyword",
-          key = "kw",
-          render = id => accessPoints.find(_.id == id).map(_.toStringLang).getOrElse(id),
-          facets = accessPoints.map { ap =>
-            FieldFacet(value = ap.id, name = Some(ap.toStringLang), applied = true, count = 1)
-          }
-        )
+  private val guideSearchFacets: FacetBuilder = { implicit request =>
+    def upcaseFirst(s: String): String =
+      if (s.length == 0) s else s.substring(0, 1).toUpperCase + s.substring(1)
+    List(
+      //dateQuery(request),
+      FieldFacetClass(
+        key = "people",
+        name = "People",
+        param = "person",
+        display = FacetDisplay.DropDown,
+        render = upcaseFirst,
+        sort = FacetSort.Name,
+        limit = Some(-1)
+      ),
+      FieldFacetClass(
+        key = "places",
+        name = "Places",
+        param = "place",
+        display = FacetDisplay.DropDown,
+        render = upcaseFirst,
+        sort = FacetSort.Name,
+        limit = Some(-1)
+      ),
+      FieldFacetClass(
+        key = "corporateBodies",
+        name = "Organisations",
+        param = "org",
+        display = FacetDisplay.DropDown,
+        render = upcaseFirst,
+        sort = FacetSort.Name,
+        limit = Some(-1)
+      ),
+      FieldFacetClass(
+        key = "subjects",
+        name = "Keyword",
+        param = "subject",
+        display = FacetDisplay.DropDown,
+        render = upcaseFirst,
+        sort = FacetSort.Name,
+        limit = Some(-1)
       )
     )
   }
 
-  private def mapAccessPoints(guide: Guide, facets: Seq[AnyModel]): Map[String, Seq[AnyModel]] = {
-    guides.findPages(guide).map { page =>
-      page.content -> facets.collect {
-        case f: Concept if f.vocabulary.exists(_.id == page.content) => f
-        case f: HistoricalAgent if f.set.exists(_.id == page.content) => f
-      }
-    }.toMap
-  }
 
-  /*
-  *   Faceted search
-  */
-  def guideFacets(path: String) = OptionalUserAction.async { implicit request =>
+  def guideFacets(path: String) = Action.async { implicit request =>
     guides.find(path, activeOnly = true).map { guide =>
-      /*
-       *  If we have keyword, we make a query 
-       */
-      val defaultResult: Future[Result] = for {
-        filters <- childItemIds(guide.virtualUnit)
-        result <- findType[DocumentaryUnit](
-          filters = filters,
-          defaultOrder = SearchOrder.Name
-        )
-      } yield Ok(views.html.guides.facet(
-        guide,
-        GuidePage.faceted,
-        guides.findPages(guide),
-        result,
-        Map.empty,
-        controllers.portal.guides.routes.Guides.guideFacets(path)
-      ))
-
-      val facets = request.queryString.getOrElse("kw", Seq.empty).filter(_.nonEmpty)
-      if (facets.isEmpty) defaultResult
-      else for {
-          ids <- searchFacets(guide, facets)
-          result <- if(ids.nonEmpty) findType[DocumentaryUnit](
-            filters = Map(s"gid:(${ids.take(1024).mkString(" ")})" -> Unit),
-            defaultOrder = SearchOrder.Name
-          ) else immediate(SearchResult.empty)
-          selectedAccessPoints <- search.list[AnyModel](facets)
-          availableFacets <- otherFacets(guide, ids)
-          tempAccessPoints <- search.listByGid[AnyModel](availableFacets)
-        } yield {
-          Ok(views.html.guides.facet(
-            guide,
-            GuidePage.faceted,
-            guides.findPages(guide),
-            pagify(result, selectedAccessPoints),
-            mapAccessPoints(guide, tempAccessPoints),
-            controllers.portal.guides.routes.Guides.guideFacets(path)
-          ))
-        }
-    } getOrElse {
+      GetItemAction(guide.virtualUnit).async { implicit request =>
+        for {
+          filters <- childItemIds(guide.virtualUnit)
+          result <- findType[DocumentaryUnit](
+            filters = filters,
+            defaultOrder = SearchOrder.Name,
+            facetBuilder = guideSearchFacets
+          )
+        } yield
+        Ok(views.html.guides.facet(
+          guide,
+          GuidePage.faceted,
+          guides.findPages(guide),
+          result,
+          Map.empty,
+          controllers.portal.guides.routes.Guides.guideFacets(path)
+        ))
+      }.apply(request)
+    }.getOrElse {
       immediate(NotFound(renderError("errors.itemNotFound", views.html.errors.itemNotFound(Some(path)))))
     }
   }

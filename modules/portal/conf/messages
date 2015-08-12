@@ -485,6 +485,18 @@ facet.promoted=Promoted
 facet.promoted.tooltip=Items that are currently promoted or demoted
 facet.score=Promotion Score
 facet.score.tooltip=The sum total of all promotions and demotions, if any
+facet.person=People
+facet.person.placeholder=Filter by people
+facet.person.tooltip=People related to each item.
+facet.place=Places
+facet.place.placeholder=Filter by place
+facet.place.tooltip=Geographical places.
+facet.org=Organisations
+facet.org.placeholder=Filter by organisation.
+facet.org.tooltip=Organisations related to each item.
+facet.subject=Keywords
+facet.subject.placeholder=Filter by keyword/subject terms
+facet.subject.tooltip=Subject terms related to each item.
 
 #
 # Activity: https://portal.ehri-project.eu/activity

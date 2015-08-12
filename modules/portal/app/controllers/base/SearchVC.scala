@@ -1,15 +1,19 @@
 package controllers.base
 
 import backend.rest.cypher.Cypher
+import controllers.generic.Search
 import models.VirtualUnit
 import models.base.AnyModel
 import play.api.Logger
 import play.api.cache.CacheApi
-import play.api.mvc.Controller
+import play.api.mvc.{RequestHeader, Controller}
 import utils.search.SearchConstants
 
 import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits._
+
+import scala.concurrent.Future._
+import scala.concurrent.Future.{successful => immediate}
 
 /**
  * Helpers for searching virtual collections
@@ -17,7 +21,7 @@ import play.api.libs.concurrent.Execution.Implicits._
  * @author Mike Bryant (http://github.com/mikesname)
  */
 trait SearchVC {
-  this: Controller with ControllerHelpers =>
+  this: Search =>
 
   implicit def app: play.api.Application
   implicit def cache: CacheApi
@@ -74,6 +78,15 @@ trait SearchVC {
         if (pq.isEmpty) Map(s"$PARENT_ID:${v.id}" -> Unit)
         else Map(s"$PARENT_ID:${v.id} OR $ITEM_ID:(${pq.mkString(" ")})" -> Unit)
       case d => Map(s"$PARENT_ID:${d.id}" -> Unit)
+    }
+  }
+
+  def filtersOrIds(item: AnyModel)(implicit request: RequestHeader): Future[Map[String,Any]] = {
+    import SearchConstants._
+    if (!hasActiveQuery(request)) immediate(buildChildSearchFilter(item))
+    else descendantIds(item.id).map { seq =>
+      if (seq.isEmpty) Map.empty
+      else Map(s"$ITEM_ID:(${seq.mkString(" ")}) OR $ANCESTOR_IDS:(${seq.mkString(" ")})" -> Unit)
     }
   }
 }

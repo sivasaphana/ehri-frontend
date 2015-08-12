@@ -51,15 +51,6 @@ case class VirtualUnits @Inject()(
       request.item, request.annotations, request.links, request.watched))
   }
 
-  def filtersOrIds(item: AnyModel)(implicit request: RequestHeader): Future[Map[String,Any]] = {
-    import SearchConstants._
-    if (!hasActiveQuery(request)) immediate(buildChildSearchFilter(item))
-    else descendantIds(item.id).map { seq =>
-      if (seq.isEmpty) Map.empty
-      else Map(s"$ITEM_ID:(${seq.mkString(" ")}) OR $ANCESTOR_IDS:(${seq.mkString(" ")})" -> Unit)
-    }
-  }
-
   def searchVirtualCollection(id: String) = GetItemAction(id).async { implicit request =>
     for {
       filters <- filtersOrIds(request.item)
