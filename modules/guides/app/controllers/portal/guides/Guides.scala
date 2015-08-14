@@ -358,46 +358,40 @@ case class Guides @Inject()(
   */
 
   private val guideSearchFacets: FacetBuilder = { implicit request =>
-    def upcaseFirst(s: String): String =
-      if (s.length == 0) s else s.substring(0, 1).toUpperCase + s.substring(1)
     List(
       //dateQuery(request),
       FieldFacetClass(
-        key = "people",
+        key = "people_facet",
         name = "People",
         param = "person",
         display = FacetDisplay.DropDown,
-        render = upcaseFirst,
         sort = FacetSort.Name,
         limit = Some(-1),
         minCount = Some(3)
       ),
       FieldFacetClass(
-        key = "places",
+        key = "places_facet",
         name = "Places",
         param = "place",
         display = FacetDisplay.DropDown,
-        render = upcaseFirst,
         sort = FacetSort.Name,
         limit = Some(-1),
         minCount = Some(3)
       ),
       FieldFacetClass(
-        key = "corporateBodies",
+        key = "corporateBodies_facet",
         name = "Organisations",
         param = "org",
         display = FacetDisplay.DropDown,
-        render = upcaseFirst,
         sort = FacetSort.Name,
         limit = Some(-1),
         minCount = Some(3)
       ),
       FieldFacetClass(
-        key = "subjects",
+        key = "subjects_facet",
         name = "Keyword",
         param = "subject",
         display = FacetDisplay.DropDown,
-        render = upcaseFirst,
         sort = FacetSort.Name,
         limit = Some(-1),
         minCount = Some(3)
