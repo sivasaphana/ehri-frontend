@@ -237,7 +237,7 @@ object ApplicationBuild extends Build {
     // SBT magic: http://stackoverflow.com/a/12772739/285374
     // pick up additional resources in test
     resourceDirectory in Test <<= baseDirectory apply {
-      (baseDir: File) => baseDir / "test/resources"
+      (baseDir: File) => baseDir / "test" / "resources"
     },
 
     // Always use nodejs to build the assets - Trireme is too slow...
@@ -286,13 +286,13 @@ object ApplicationBuild extends Build {
     //pipelineStages := Seq(rjs, concat, digest, gzip),
     pipelineStages in Assets := Seq(concat, digest, gzip),
     Concat.groups := Seq(
-     "css/portal-all.css" -> group(
+     file("css/portal-all.css").getPath -> group(
         Seq(
           "css/font-awesome.css",
           "css/portal.css"
-        )
+        ).map(file(_).getPath)
        ),
-      "js/script-pre.js" -> group(
+      file("js/script-pre.js").getPath -> group(
         Seq(
           "js/lib/jquery-1.11.2.js",
           "js/lib/jquery.autosize.js",
@@ -304,24 +304,24 @@ object ApplicationBuild extends Build {
           "js/select2/select2.js",
           "js/feedback.js",
           "js/common.js"
-        )
+        ).map(file(_).getPath)
       ),
-      "js/script-post.js" -> group(
+      file("js/script-post.js").getPath -> group(
         Seq(
           "js/lib/jquery.cookie.js",
           "js/lib/jquery.placeholder.js",
           "bootstrap/js/bootstrap.js",
           "js/portal.js"
-        )
+        ).map(file(_).getPath)
       ),
-      "js/script-post-signedin.js" -> group(
+      file("js/script-post-signedin.js").getPath -> group(
         Seq(
           "js/lib/jquery.cookie.js",
           "js/lib/jquery.placeholder.js",
           "bootstrap/js/bootstrap.js",
           "js/portal.js",
           "js/portal-signedin.js"
-        )
+        ).map(file(_).getPath)
       )
     )
   ).settings(commonSettings: _*).dependsOn(core % "test->test;compile->compile")
