@@ -1,6 +1,7 @@
 package utils.ead
 
 import com.jmcejuela.scala.xml.XMLPrettyPrinter
+import play.api.Logger
 import play.api.i18n.Messages
 import play.api.libs.concurrent.Execution.Implicits._
 import backend.{BackendHandle, ApiUser}
@@ -15,20 +16,24 @@ import models.{Repository, DocumentaryUnit}
  * @author Mike Bryant (http://github.com/mikesname)
  */
 case class EadExporter(backendHandle: BackendHandle)(implicit apiUser: ApiUser) {
+  val logger: Logger = Logger(this.getClass)
   private val params = PageParams.empty.withoutLimit // can't get around large limits yet...
   private val printer = new XMLPrettyPrinter(4)
 
   /**
    * Fetch the full item and it's set of children, recursively.
    */
-  private def fetchTree(id: String, eadId: String): Future[DocTree] = for {
-    doc <- backendHandle.get[DocumentaryUnit](id)
-    children <- backendHandle.listChildren[DocumentaryUnit,DocumentaryUnit](id, params)
-    trees <- Future.sequence(children.map(c => {
-      if (c.childCount.getOrElse(0) > 0) fetchTree(c.id, eadId)
-      else Future.successful(DocTree(eadId, c, Seq.empty))
-    }))
-  } yield DocTree(eadId, doc, trees)
+  private def fetchTree(id: String, eadId: String, depth: Int = 0): Future[DocTree] = {
+    logger.debug(s"Fetching EAD for $id at depth $depth")
+    for {
+      doc <- backendHandle.get[DocumentaryUnit](id)
+      children <- backendHandle.listChildren[DocumentaryUnit,DocumentaryUnit](id, params)
+      trees <- Future.sequence(children.map(c => {
+        if (c.childCount.getOrElse(0) > 0) fetchTree(c.id, eadId, depth + 1)
+        else Future.successful(DocTree(eadId, c, Seq.empty))
+      }))
+    } yield DocTree(eadId, doc, trees)
+  }
 
   // Ugh, need to fetch the repository manually to
   // ensure we have detailed address info. Otherwise we'll
