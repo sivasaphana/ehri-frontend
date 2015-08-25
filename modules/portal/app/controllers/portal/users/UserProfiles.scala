@@ -314,8 +314,9 @@ case class UserProfiles @Inject()(
       case Right(multipartForm) => multipartForm.file("image").map { file =>
         if (isValidContentType(file)) {
           try {
+            val (ext, thumb) = convertFile(file, request.user, request)
             for {
-              url <- convertAndUploadFile(file, request.user, request)
+              url <- uploadFile(thumb, ext, request.user, request)
               _ <- userBackend.patch[UserProfile](request.user.id, Json.obj(UserProfileF.IMAGE_URL -> url))
             } yield Redirect(profileRoutes.profile())
                   .flashing("success" -> "profile.update.confirmation")
@@ -337,22 +338,20 @@ case class UserProfiles @Inject()(
   private def isValidContentType(file: FilePart[TemporaryFile]): Boolean =
     file.contentType.exists(_.toLowerCase.startsWith("image/"))
 
-  private def convertAndUploadFile(file: FilePart[TemporaryFile], user: UserProfile, request: RequestHeader): Future[String] = {
+  private def convertFile(file: FilePart[TemporaryFile], user: UserProfile, request: RequestHeader): (String, File) = {
+    val extension = file.filename.substring(file.filename.lastIndexOf("."))
+    val temp = File.createTempFile(user.id, extension)
+    temp.deleteOnExit()
+    Thumbnails.of(file.ref.file).size(200, 200).toFile(temp)
+    (extension, temp)
+  }
+
+  private def uploadFile(file: File, extension: String, user: UserProfile, request: RequestHeader): Future[String] = {
     val instance = getConfigString("storage.instance", request.host)
     val classifier = getConfigString("storage.profiles.classifier")
-    val extension = file.filename.substring(file.filename.lastIndexOf("."))
     val storeName = s"images/$instance/${user.id}$extension"
-    val temp = File.createTempFile(user.id, extension)
-    try {
-      Thumbnails.of(file.ref.file).size(200, 200).toFile(temp)
-    } catch {
-      case e: Throwable =>
-        temp.delete()
-        throw e
-    }
-
-    val url: Future[String] = fileStorage.putFile(instance, classifier, storeName, temp).map(_.toString)
-    url.onComplete { _ => temp.delete() }
+    val url: Future[String] = fileStorage.putFile(instance, classifier, storeName, file).map(_.toString)
+    url.onComplete { _ => file.delete() }
     url
   }
 }
