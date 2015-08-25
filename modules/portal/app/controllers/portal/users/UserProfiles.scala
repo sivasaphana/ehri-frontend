@@ -3,6 +3,7 @@ package controllers.portal.users
 import auth.AccountManager
 import controllers.base.CsvHelpers
 import controllers.generic.Search
+import play.api.Logger
 import play.api.cache.CacheApi
 import play.api.libs.concurrent.Execution.Implicits._
 import models._
@@ -319,9 +320,12 @@ case class UserProfiles @Inject()(
             } yield Redirect(profileRoutes.profile())
                   .flashing("success" -> "profile.update.confirmation")
           } catch {
-            case e: UnsupportedFormatException => onError("errors.badFileType")
+            case e: UnsupportedFormatException =>
+              Logger.warn("Unsupported file format for profile image: " + e.getFormatName)
+              onError("errors.badFileType")
           }
         } else {
+          Logger.warn("Invalid file format for profile image: " + file.contentType)
           onError("errors.badFileType")
         }
       }.getOrElse {
