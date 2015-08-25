@@ -8,8 +8,6 @@ import scala.concurrent.Future
 import utils.PageParams
 import models.{Repository, DocumentaryUnit}
 
-import scala.xml.XML
-
 /**
  * Class which interacts with the backend to create an EAD document
  * given a single top-level collection ID.
