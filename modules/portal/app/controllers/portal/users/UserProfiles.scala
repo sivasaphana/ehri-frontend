@@ -339,7 +339,13 @@ case class UserProfiles @Inject()(
     val extension = file.filename.substring(file.filename.lastIndexOf("."))
     val storeName = s"images/$instance/${user.id}$extension"
     val temp = File.createTempFile(user.id, extension)
-    Thumbnails.of(file.ref.file).size(200, 200).toFile(temp)
+    try {
+      Thumbnails.of(file.ref.file).size(200, 200).toFile(temp)
+    } catch {
+      case e: Throwable =>
+        temp.delete()
+        throw e
+    }
 
     val url: Future[String] = fileStorage.putFile(instance, classifier, storeName, temp).map(_.toString)
     url.onComplete { _ => temp.delete() }
