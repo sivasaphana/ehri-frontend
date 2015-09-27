@@ -26,7 +26,7 @@ trait SearchDAO extends RestDAO {
     // NB: Using POST here because the list of IDs can
     // potentially overflow the GET param length...
     if (ids.isEmpty) Future.successful(Seq.empty[MT])
-    else BackendRequest(enc(requestUrl, "listByGraphId"))
+    else BackendRequest(enc(requestUrl))
         .withHeaders(authHeaders.toSeq: _*).post(Json.toJson(ids)).map { response =>
       checkErrorAndParse(response)(Reads.seq(rd.restReads))
     }
@@ -36,7 +36,7 @@ trait SearchDAO extends RestDAO {
     // NB: Using POST here because the list of IDs can
     // potentially overflow the GET param length...
     if (ids.isEmpty) Future.successful(Seq.empty[MT])
-    else BackendRequest(requestUrl)
+    else BackendRequest(enc(requestUrl))
       .withHeaders(authHeaders.toSeq: _*).post(Json.toJson(ids)).map { response =>
       checkErrorAndParse(response, context = Some(requestUrl))(Reads.seq(rd.restReads))
     }

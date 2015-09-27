@@ -16,12 +16,12 @@ trait RestEvents extends Events with RestDAO with RestContext {
   private def requestUrl = s"$baseUrl/${EntityType.SystemEvent}"
 
   override def history[A: Readable](id: String, params: RangeParams, filters: SystemEventParams = SystemEventParams.empty): Future[RangePage[Seq[A]]] = {
-    val url: String = enc(requestUrl, "aggregateFor", id)
+    val url: String = enc(baseUrl, "entities", id, EntityType.SystemEvent)
     fetchRange(userCall(url, filters.toSeq), params, Some(url))(Reads.seq(Readable[A].restReads))
   }
 
   override def versions[A: Readable](id: String, params: PageParams): Future[Page[A]] = {
-    val url: String = enc(baseUrl, EntityType.Version, "for",  id)
+    val url: String = enc(baseUrl, "entities", id, EntityType.Version)
     userCall(url)
       .withQueryString(params.queryParams: _*)
       .withHeaders(params.headers: _*)
@@ -35,12 +35,12 @@ trait RestEvents extends Events with RestDAO with RestContext {
   }
 
   override def listUserActions[A: Readable](userId: String, params: RangeParams, filters: SystemEventParams = SystemEventParams.empty): Future[RangePage[Seq[A]]] = {
-    val url: String = enc(requestUrl, "aggregateByUser", userId)
+    val url: String = enc(baseUrl, EntityType.UserProfile, userId, EntityType.SystemEvent)
     fetchRange(userCall(url, filters.toSeq), params, Some(url))(Reads.seq(Readable[A].restReads))
   }
 
   override def listEventsForUser[A: Readable](userId: String, params: RangeParams, filters: SystemEventParams = SystemEventParams.empty): Future[RangePage[Seq[A]]] = {
-    val url: String = enc(requestUrl, "aggregateForUser", userId)
+    val url: String = enc(baseUrl, EntityType.UserProfile, userId, "activity")
     fetchRange(userCall(url, filters.toSeq), params, Some(url))(Reads.seq(Readable[A].restReads))
   }
 

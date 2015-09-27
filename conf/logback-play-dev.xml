@@ -42,7 +42,7 @@
   <logger name="play.api.libs.concurrent.ActorSystemProvider" level="ERROR" />
 
   <!-- Uncomment to see backend request HTTP calls -->
-  <!-- <logger name="backend" level="DEBUG" /> -->
+  <logger name="backend" level="DEBUG" />
 
   <!-- Uncomment to log backend transaction opening and closing -->
   <!--<logger name="eu.ehri.project.core.impl" level="TRACE" />-->

@@ -17,13 +17,13 @@ trait RestPermissions extends Permissions with RestDAO with RestContext {
   private def requestUrl = s"$baseUrl/permission"
 
   def listPermissionGrants[A: Readable](userId: String, params: PageParams): Future[Page[A]] =
-    listWithUrl(enc(requestUrl, "list", userId), params)
+    listWithUrl(enc(baseUrl, EntityType.UserProfile, userId, EntityType.PermissionGrant), params)
 
   def listItemPermissionGrants[A: Readable](id: String, params: PageParams): Future[Page[A]] =
-    listWithUrl(enc(requestUrl, "listForItem", id), params)
+    listWithUrl(enc(baseUrl, "entities", id, EntityType.PermissionGrant), params)
 
   def listScopePermissionGrants[A: Readable](id: String, params: PageParams): Future[Page[A]] =
-    listWithUrl(enc(requestUrl, "listForScope", id), params)
+    listWithUrl(enc(baseUrl, "entities", id, EntityType.PermissionGrant, "scope"), params)
 
   private def listWithUrl[A: Readable](url: String, params: PageParams): Future[Page[A]] = {
     userCall(url).withQueryString(params.queryParams: _*).get().map { response =>
