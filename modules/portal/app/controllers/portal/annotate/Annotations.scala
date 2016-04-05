@@ -66,7 +66,7 @@ case class Annotations @Inject()(
 
   def browse(id: String) = OptionalUserAction.async { implicit request =>
     userDataApi.get[Annotation](id).map { ann =>
-      if (isAjax) Ok(Json.toJson(ann)(client.json.annotationJson.clientFormat))
+      if (isAjax) Ok(Json.toJson(ann)(client.json.annotationJson.clientWrites))
       else Ok(views.html.annotation.show(ann))
     }
   }

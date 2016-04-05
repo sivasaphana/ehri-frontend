@@ -69,7 +69,7 @@ object UserProfileF {
 
 case class UserProfileF(
   isA: EntityType.Value = EntityType.UserProfile,
-  id: Option[String],
+  id: Option[String] = None,
   identifier: String,
   name: String,
   location: Option[String] = None,
