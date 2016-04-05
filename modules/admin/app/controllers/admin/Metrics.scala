@@ -47,7 +47,7 @@ case class Metrics @Inject()(
   private def jsonResponse[T](result: SearchResult[(T, SearchHit)])(implicit request: Request[AnyContent], w: ClientWriteable[T]): Result = {
     render {
       case Accepts.Json() | Accepts.JavaScript() => Ok(Json.obj(
-        "page" -> Json.toJson(result.mapItems(_._1).page)(Page.pageWrites(w.clientFormat)),
+        "page" -> Json.toJson(result.mapItems(_._1).page)(Page.pageWrites(w.clientWrites)),
         "params" -> Json.toJson(result.params),
         "appliedFacets" -> Json.toJson(result.facets),
         "facetClasses" -> Json.toJson(result.facetClasses)

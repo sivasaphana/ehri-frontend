@@ -82,6 +82,15 @@ trait DataApiHandle {
   def getAny[MT: Readable](id: String): Future[MT]
 
   /**
+   * Fetch an item of a particular type by ID.
+   *
+   * @param t the item's type
+   * @param id the string ID
+   * @return the item
+   */
+  def getType[MT: Readable](t: String, id: String): Future[MT]
+
+  /**
    * Fetch items by string ID or internal graph ID.
    *
    * @param ids a sequence of string IDs

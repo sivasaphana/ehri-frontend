@@ -115,7 +115,7 @@ case class AdminSearch @Inject()(
         case Accepts.Json() =>
           Ok(Json.toJson(Json.obj(
             "numPages" -> result.page.numPages,
-            "page" -> Json.toJson(result.page.items.map(_._1))(Writes.seq(client.json.anyModelJson.clientFormat)),
+            "page" -> Json.toJson(result.page.items.map(_._1))(Writes.seq(client.json.anyModelJson.clientWrites)),
             "facets" -> result.facetClasses
           ))
           )

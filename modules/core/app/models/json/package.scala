@@ -86,6 +86,11 @@ package object json {
       }
     }
 
+    /** Skip writing the given object */
+    def skipWrites[T] = new OWrites[T] {
+      def writes(o: T): JsObject = Json.obj()
+    }
+
     def formatSeqOrEmpty[T](implicit fmt: Format[T]): OFormat[Seq[T]] =
       OFormat[Seq[T]](readSeqOrEmpty(fmt), writeSeqOrEmpty(fmt))
 
