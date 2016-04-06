@@ -4,6 +4,7 @@
 ->          /notes                                annotate.Routes
 ->          /profile                              profile.Routes
 ->          /people                               social.Routes
+->          /api/v1                               apiV1.Routes
 
 GET         /                                     @controllers.portal.Portal.index
 
