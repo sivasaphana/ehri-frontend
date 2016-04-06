@@ -13,6 +13,9 @@ import play.api.mvc.RequestHeader
 
 package object json {
 
+  private def urlFor[T<: AnyModel](t: T)(implicit request: RequestHeader): String =
+    views.p.Helpers.linkTo(t).absoluteURL(false)
+
   implicit object datePeriodJson extends ClientWriteable[DatePeriodF] {
     def clientWrites(implicit request: RequestHeader): Writes[DatePeriodF] = Json.writes[DatePeriodF]
   }
@@ -63,7 +66,7 @@ package object json {
       (__ \ "targets").writeSeqOrEmpty(anyModelJson.clientWrites) and
       (__ \ "scope").lazyWriteNullable[AnyModel](anyModelJson.clientWrites) and
       (__ \ "grantedBy").lazyWriteNullable[UserProfile](userProfileJson.clientWrites) and
-      (__ \ "meta").format[JsObject]
+      (__ \ "meta").skipWrites[JsValue]
     )(unlift(PermissionGrant.unapply))
   }
 
@@ -82,7 +85,7 @@ package object json {
       (__ \ "promotedBy").writeSeqOrEmpty(userProfileJson.clientWrites) and
       (__ \ "demotedBy").writeSeqOrEmpty(userProfileJson.clientWrites) and
       (__ \ "event").writeNullable[SystemEvent](systemEventJson.clientWrites) and
-      (__ \ "meta").write[JsObject]
+      (__ \ "meta").skipWrites[JsValue]
     )(unlift(Link.unapply))
   }
 
@@ -91,7 +94,7 @@ package object json {
       JsPath.write[CountryF](Json.writes[CountryF]) and
       (__ \ "accessibleTo").writeSeqOrEmpty(accessorJson.clientWrites) and
       (__ \ "event").writeNullable[SystemEvent](systemEventJson.clientWrites) and
-      (__ \ "meta").format[JsObject]
+      (__ \ "meta").skipWrites[JsValue]
     )(unlift(Country.unapply))
   }
 
@@ -99,7 +102,7 @@ package object json {
     def clientWrites(implicit request: RequestHeader): Writes[Version] = (
       JsPath.write[VersionF](Json.writes[VersionF]) and
       (__ \ "event").lazyWriteNullable(systemEventJson.clientWrites) and
-      (__ \ "meta").format[JsObject]
+      (__ \ "meta").skipWrites[JsObject]
     )(unlift(Version.unapply))
   }
 
@@ -114,11 +117,14 @@ package object json {
   implicit object systemEventJson extends ClientWriteable[SystemEvent] {
     def clientWrites(implicit request: RequestHeader): Writes[SystemEvent] = (
       JsPath.write[SystemEventF](Json.writes[SystemEventF]) and
-      (__ \ "scope").lazyWriteNullable[AnyModel](anyModelJson.clientWrites) and
-      (__ \ "firstSubject").lazyWriteNullable[AnyModel](anyModelJson.clientWrites) and
-      (__ \ "user").lazyWriteNullable[Accessor](accessorJson.clientWrites) and
+      (__ \ "scope").writeNullable[String]
+        .contramap[Option[AnyModel]](_.map(v => urlFor(v))) and
+      (__ \ "firstSubject").writeNullable[String]
+        .contramap[Option[AnyModel]](_.map(v => urlFor(v))) and
+      (__ \ "user").writeNullable[String]
+        .contramap[Option[Accessor]](_.map(v => urlFor(v))) and
       (__ \ "version").lazyWriteNullable(versionJson.clientWrites) and
-      (__ \ "meta").write[JsObject]
+      (__ \ "meta").skipWrites[JsValue]
     )(unlift(SystemEvent.unapply))
   }
 
@@ -128,7 +134,7 @@ package object json {
       (__ \ "groups").lazyNullableSeqWrites(clientWrites) and
       (__ \ "accessibleTo").lazyNullableSeqWrites(accessorJson.clientWrites) and
       (__ \ "event").writeNullable[SystemEvent](systemEventJson.clientWrites) and
-      (__ \ "meta").format[JsObject]
+      (__ \ "meta").skipWrites[JsValue]
     )(unlift(Group.unapply))
   }
 
@@ -138,7 +144,7 @@ package object json {
       (__ \ "groups").writeSeqOrEmpty(groupJson.clientWrites) and
       (__ \ "accessibleTo").lazyNullableSeqWrites(accessorJson.clientWrites) and
       (__ \ "event").writeNullable[SystemEvent](systemEventJson.clientWrites) and
-      (__ \ "meta").write[JsObject]
+      (__ \ "meta").skipWrites[JsValue]
     )(unlift(UserProfile.quickUnapply))
   }
 
@@ -146,15 +152,18 @@ package object json {
     def clientWrites(implicit request: RequestHeader): Writes[Annotation] = (
       JsPath.write[AnnotationF](Json.writes[AnnotationF]) and
       (__ \ "annotations").lazyNullableSeqWrites(clientWrites) and
-      (__ \ "user").lazyWriteNullable[UserProfile](userProfileJson.clientWrites) and
-      (__ \ "source").lazyWriteNullable[AnyModel](anyModelJson.clientWrites) and
-      (__ \ "target").lazyWriteNullable[AnyModel](anyModelJson.clientWrites) and
+      (__ \ "user").writeNullable[String]
+        .contramap[Option[UserProfile]](_.map(v => urlFor(v))) and
+      (__ \ "source").writeNullable[String]
+        .contramap[Option[AnyModel]](_.map(v => urlFor(v))) and
+      (__ \ "target").writeNullable[String]
+        .contramap[Option[AnyModel]](_.map(v => urlFor(v))) and
       (__ \ "targetPart").lazyWriteNullable[Entity](Entity.entityFormat) and
       (__ \ "accessibleTo").writeSeqOrEmpty(accessorJson.clientWrites) and
       (__ \ "promotedBy").writeSeqOrEmpty(userProfileJson.clientWrites) and
       (__ \ "demotedBy").writeSeqOrEmpty(userProfileJson.clientWrites) and
       (__ \ "event").writeNullable[SystemEvent](systemEventJson.clientWrites) and
-      (__ \ "meta").format[JsObject]
+      (__ \ "meta").skipWrites[JsValue]
     )(unlift(Annotation.unapply))
   }
 
@@ -205,10 +214,11 @@ package object json {
     def clientWrites(implicit request: RequestHeader): Writes[HistoricalAgent] = {
       implicit val haDescFmt = historicalAgentDescriptionJson.clientWrites
       (JsPath.write(Json.writes[HistoricalAgentF]) and
-        (__ \ "set").writeNullable[AuthoritativeSet](authoritativeSetJson.clientWrites) and
-        (__ \ "accessibleTo").writeSeqOrEmpty(accessorJson.clientWrites) and
+        (__ \ "set").writeNullable[String]
+          .contramap[Option[AuthoritativeSet]](_.map(v => urlFor(v))) and
+        (__ \ "accessibleTo").skipWrites[Seq[Accessor]] and
         (__ \ "event").writeNullable[SystemEvent](systemEventJson.clientWrites) and
-        (__ \ "meta").write[JsObject]
+        (__ \ "meta").skipWrites[JsValue]
       )(unlift(HistoricalAgent.unapply))
     }
   }
@@ -217,10 +227,11 @@ package object json {
     def clientWrites(implicit request: RequestHeader): Writes[Repository] = {
       implicit val repoDescFmt = repositoryDescriptionJson.clientWrites
       (JsPath.write(Json.writes[RepositoryF]) and
-        (__ \ "country").writeNullable[Country](countryJson.clientWrites) and
-        (__ \ "accessibleTo").writeSeqOrEmpty(accessorJson.clientWrites) and
+        (__ \ "country").writeNullable[String]
+          .contramap[Option[Country]](_.map(v => urlFor(v))) and
+        (__ \ "accessibleTo").skipWrites[Seq[Accessor]] and
         (__ \ "event").writeNullable[SystemEvent](systemEventJson.clientWrites) and
-        (__ \ "meta").format[JsObject]
+        (__ \ "meta").skipWrites[JsValue]
       )(unlift(Repository.unapply))
     }
   }
@@ -229,11 +240,13 @@ package object json {
     def clientWrites(implicit request: RequestHeader): Writes[DocumentaryUnit] = {
       implicit val docDescFmt = documentaryUnitDescriptionJson.clientWrites
       (JsPath.write(Json.writes[DocumentaryUnitF]) and
-        (__ \ "holder").writeNullable[Repository](repositoryJson.clientWrites) and
-        (__ \ "parent").lazyWriteNullable[DocumentaryUnit](clientWrites) and
-        (__ \ "accessibleTo").writeSeqOrEmpty(accessorJson.clientWrites) and
+        (__ \ "holder").writeNullable[String]
+          .contramap[Option[Repository]](_.map(v => urlFor(v))) and
+        (__ \ "parent").writeNullable[String]
+          .contramap[Option[DocumentaryUnit]](_.map(v => urlFor(v))) and
+        (__ \ "accessibleTo").skipWrites[Seq[Accessor]] and
         (__ \ "event").writeNullable[SystemEvent](systemEventJson.clientWrites) and
-        (__ \ "meta").format[JsObject]
+        (__ \ "meta").skipWrites[JsValue]
       )(unlift(DocumentaryUnit.unapply))
     }
   }
@@ -245,39 +258,42 @@ package object json {
       (__ \ "author").writeNullable[Accessor](accessorJson.clientWrites) and
       (__ \ "parent").lazyWriteNullable[VirtualUnit](clientWrites) and
       (__ \ "holder").writeNullable[Repository](repositoryJson.clientWrites) and
-      (__ \ "accessibleTo").writeSeqOrEmpty(accessorJson.clientWrites) and
+      (__ \ "accessibleTo").skipWrites[Seq[Accessor]] and
       (__ \ "event").writeNullable[SystemEvent](systemEventJson.clientWrites) and
-      (__ \ "meta").write[JsObject]
+      (__ \ "meta").skipWrites[JsValue]
     )(unlift(VirtualUnit.unapply))
   }
 
   implicit object authoritativeSetJson extends ClientWriteable[AuthoritativeSet] {
     def clientWrites(implicit request: RequestHeader): Writes[AuthoritativeSet] = (
       JsPath.write[AuthoritativeSetF](Json.writes[AuthoritativeSetF]) and
-      (__ \ "accessibleTo").writeSeqOrEmpty(accessorJson.clientWrites) and
+      ( __ \ "accessibleTo").skipWrites[Seq[Accessor]] and
       (__ \ "event").writeNullable[SystemEvent](systemEventJson.clientWrites) and
-      (__ \ "meta").format[JsObject]
+      (__ \ "meta").skipWrites[JsValue]
     )(unlift(AuthoritativeSet.unapply))
   }
 
   implicit object vocabularyJson extends ClientWriteable[Vocabulary] {
     def clientWrites(implicit request: RequestHeader): Writes[Vocabulary] = (
       JsPath.write[VocabularyF](Json.writes[VocabularyF]) and
-      (__ \ "accessibleTo").writeSeqOrEmpty(accessorJson.clientWrites) and
+      (__ \ "accessibleTo").skipWrites[Seq[Accessor]] and
       (__ \ "event").writeNullable[SystemEvent](systemEventJson.clientWrites) and
-      (__ \ "meta").write[JsObject]
+      (__ \ "meta").skipWrites[JsValue]
     )(unlift(Vocabulary.unapply))
   }
 
   implicit object conceptJson extends ClientWriteable[Concept] {
     def clientWrites(implicit request: RequestHeader): Writes[Concept] = (
       JsPath.write[ConceptF](Json.writes[ConceptF]) and
-      (__ \ "vocabulary").writeNullable[Vocabulary](vocabularyJson.clientWrites) and
-      (__ \ "parent").lazyWriteNullable[Concept](clientWrites) and
-      (__ \ "broaderTerms").lazyNullableSeqWrites(clientWrites) and
-      (__ \ "accessibleTo").writeSeqOrEmpty(accessorJson.clientWrites) and
+      (__ \ "vocabulary").writeNullable[String]
+        .contramap[Option[Vocabulary]](_.map(v => urlFor(v))) and
+      (__ \ "parent").writeNullable[String]
+        .contramap[Option[Concept]](_.map(v => urlFor(v))) and
+      (__ \ "broaderTerms").writeSeqOrEmpty[String]
+        .contramap[Seq[Concept]](_.map(s => urlFor(s))) and
+      (__ \ "accessibleTo").skipWrites[Seq[Accessor]] and
       (__ \ "event").writeNullable[SystemEvent](systemEventJson.clientWrites) and
-      (__ \ "meta").write[JsObject]
+      (__ \ "meta").skipWrites[JsValue]
     )(unlift(Concept.unapply))
   }
 }
