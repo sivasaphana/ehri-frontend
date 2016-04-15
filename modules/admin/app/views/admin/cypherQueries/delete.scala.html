@@ -1,10 +1,10 @@
 @(item: CypherQuery, action: Call, cancel: Call)(implicit userOpt: Option[UserProfile], request: RequestHeader, globalConfig: global.GlobalConfig, messages: Messages, flash: Flash)
 
-@views.html.admin.layout.rightSidebar(Messages("item.delete")) {
-    <p>@Messages("item.delete")</p>
+@views.html.admin.layout.rightSidebar(Messages("cypherQuery.delete")) {
+    <p>@Messages("cypherQuery.delete.description")</p>
     @helper.form(action = action, 'class -> "form-horizontal") {
         @formHelpers.csrfToken()
-        @formHelpers.submitButtonWithLogMessageInput(Messages("item.delete.submit"), cancel = Some(cancel))
+        @formHelpers.submitButtonWithLogMessageInput(Messages("cypherQuery.delete.submit"), cancel = Some(cancel))
     }
 } {
 

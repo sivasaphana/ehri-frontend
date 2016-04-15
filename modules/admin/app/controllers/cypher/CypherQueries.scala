@@ -14,6 +14,7 @@ import play.api.cache.CacheApi
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.i18n.MessagesApi
+import utils.PageParams
 import views.MarkdownRenderer
 import scala.concurrent.Future.{successful => immediate}
 
@@ -31,7 +32,9 @@ case class CypherQueries @Inject()(
   md: MarkdownRenderer
 ) extends AdminController {
 
-  private val queryForm = Form(single("q" -> nonEmptyText))
+  private val queryForm = Form(
+    single("q" -> nonEmptyText.verifying(CypherQuery.isReadOnly))
+  )
 
   private val defaultCypher =
     """
@@ -46,17 +49,16 @@ case class CypherQueries @Inject()(
   }
 
   def cypherQuery = AdminAction.async { implicit request =>
-    // NB: JS doesn't handle streaming responses well, so if we're
-    // calling it from there don't chunk the response.
-    val q: String = queryForm.bindFromRequest.value.getOrElse("")
-    if (isAjax) cypher.cypher(q, Map.empty).map(r => Ok(r))
-    else cypher.stream(q, Map.empty).map { sr =>
-      Status(sr.headers.status).chunked(sr.body)
-    }
+    queryForm.bindFromRequest.fold(
+      err => immediate(BadRequest(err.errorsAsJson)),
+      q => cypher.stream(q, Map.empty).map { sr =>
+        Status(sr.headers.status).chunked(sr.body)
+      }
+    )
   }
 
   def listQueries = WithUserAction.async { implicit request =>
-    cypherQueries.list().map { queries =>
+    cypherQueries.list(PageParams.fromRequest(request)).map { queries =>
       Ok(views.html.admin.cypherQueries.list(queries))
     }
   }

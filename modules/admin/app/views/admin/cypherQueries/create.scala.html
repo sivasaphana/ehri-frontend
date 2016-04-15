@@ -1,12 +1,20 @@
 @(f: Form[CypherQuery], action: Call)(implicit userOpt: Option[UserProfile], req: RequestHeader, globalConfig: global.GlobalConfig, messages: Messages, md: views.MarkdownRenderer, flash: Flash)
 
-@views.html.admin.layout.rightSidebar(Messages("item.create")) {
-	@helper.form(action = action, 'class -> "entity-form form-horizontal") {
+@views.html.admin.layout.rightSidebar(Messages("cypherQuery.create")) {
+    @helper.form(action = action, 'class -> "entity-form form-horizontal validate-form") {
         @formHelpers.csrfToken()
         @views.html.admin.cypherQueries.form(None, f, action)
 
-        @formHelpers.submitButton(Messages("item.create.submit"))
-	}
+        <div class="form-actions">
+            <div class="form-group">
+                <input type="button" id="test-query" class="btn btn-default" value="@Messages("cypherQuery.test")"/>
+                <button type="submit" class="btn btn-post ">@Messages("cypherQuery.create.submit")</button>
+            </div>
+        </div>
+    }
+    <hr/>
+    <div id="update-progress">
+    </div>
 } {
 
 }

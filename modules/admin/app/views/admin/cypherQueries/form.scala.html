@@ -2,9 +2,66 @@
 
 @implicitField = @{ views.html.helper.FieldConstructor(formHelpers.fieldTemplate.f) }
 
+@helper.javascriptRouter("cypherJsRoutes")(
+    controllers.cypher.routes.javascript.CypherQueries.cypherQuery
+)
+
+<link rel="stylesheet" href="@controllers.admin.routes.AdminAssets.versioned("css/lib/codemirror.css")">
+<style>
+    .CodeMirror {
+        border:1px solid #ccc;
+        min-height: 150px;
+        margin-bottom: 10px;
+    }
+    .CodeMirror.danger {
+        border-color: #a94442;
+    }
+</style>
+<script src="@controllers.admin.routes.AdminAssets.versioned("js/lib/codemirror.js")"></script>
+<script src="@controllers.admin.routes.AdminAssets.versioned("js/lib/cypher.js")"></script>
+<script type="application/javascript">
+    jQuery(function($) {
+        var danger = /@(CypherQuery.dangerousClauses.regex)/i;
+        var text = document.getElementById("query");
+        var editor = CodeMirror.fromTextArea(text, {
+            mode:'cypher',
+            lineNumbers: true
+        });
+        var $test = $("#test-query"),
+            update = document.getElementById("update-progress");
+
+        editor.on("change", function() {
+            var match = editor.getValue().match(danger);
+            $(".CodeMirror").toggleClass("danger", match !== null);
+            $test.attr("disabled", match !== null);
+        });
+
+        function setRunning(running) {
+            $test.attr("disabled", running)
+                .toggleClass("running", running);
+        }
+        $test.click(function(e) {
+            e.preventDefault();
+
+            var url = cypherJsRoutes.controllers.cypher.CypherQueries.cypherQuery().url;
+            readDataStream("GET", url + "?" + $.param({q: editor.getValue()}), {
+                start: function() {
+                    setRunning(true);
+                },
+                progress: function(xhr) {
+                    update.innerHTML = "<pre>" + xhr.responseText + "</pre>";
+                },
+                stop: function() {
+                    setRunning(false);
+                }
+            });
+        });
+    });
+</script>
+
 @defining("cypherQuery") { implicit prefix =>
     @formHelpers.lineInput(form(""), CypherQuery.NAME)
-    @formHelpers.textInput(form(""), CypherQuery.QUERY)
     @formHelpers.textInput(form(""), CypherQuery.DESCRIPTION)
     @formHelpers.checkbox(form(""), CypherQuery.PUBLIC)
+    @formHelpers.textInput(form(""), CypherQuery.QUERY)
 }

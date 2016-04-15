@@ -1,4 +1,4 @@
-@(queries: Seq[CypherQuery])(implicit userOpt: Option[UserProfile], req: RequestHeader, globalConfig: global.GlobalConfig, messages: Messages, md: views.MarkdownRenderer, flash: Flash)
+@(queries: utils.Page[CypherQuery])(implicit userOpt: Option[UserProfile], req: RequestHeader, globalConfig: global.GlobalConfig, messages: Messages, md: views.MarkdownRenderer, flash: Flash)
 
 @views.html.admin.layout.rightSidebar(Messages("cypherQuery.list")) {
     <ul class="search-result-list">
@@ -38,6 +38,7 @@
         }
     }
     </ul>
+    @views.html.common.pagination(queries)
 } {
     @views.html.admin.common.sidebarActions { user =>
         @views.html.admin.common.sidebarAction(user.isAdmin) {

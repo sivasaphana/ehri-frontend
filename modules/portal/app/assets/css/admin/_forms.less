@@ -67,3 +67,14 @@
     .make-md-column(9);
   }
 }
+
+.progress-button {
+  padding-left: @large-padding;
+  padding-right: @large-padding;
+  &.running {
+    background-image: url('../img/ajax-loader-small.gif');
+    background-position: center;
+    background-position-x: 3px;
+    background-repeat: no-repeat;
+  }
+}
