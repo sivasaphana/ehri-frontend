@@ -7,16 +7,6 @@
 )
 
 <link rel="stylesheet" href="@controllers.admin.routes.AdminAssets.versioned("css/lib/codemirror.css")">
-<style>
-    .CodeMirror {
-        border:1px solid #ccc;
-        min-height: 150px;
-        margin-bottom: 10px;
-    }
-    .CodeMirror.danger {
-        border-color: #a94442;
-    }
-</style>
 <script src="@controllers.admin.routes.AdminAssets.versioned("js/lib/codemirror.js")"></script>
 <script src="@controllers.admin.routes.AdminAssets.versioned("js/lib/cypher.js")"></script>
 <script type="application/javascript">
@@ -24,8 +14,7 @@
         var danger = /@(CypherQuery.dangerousClauses.regex)/i;
         var text = document.getElementById("query");
         var editor = CodeMirror.fromTextArea(text, {
-            mode:'cypher',
-            lineNumbers: true
+            mode:'cypher'
         });
         var $test = $("#test-query"),
             update = document.getElementById("update-progress");
@@ -59,9 +48,27 @@
     });
 </script>
 
-@defining("cypherQuery") { implicit prefix =>
-    @formHelpers.lineInput(form(""), CypherQuery.NAME)
-    @formHelpers.textInput(form(""), CypherQuery.DESCRIPTION)
-    @formHelpers.checkbox(form(""), CypherQuery.PUBLIC)
-    @formHelpers.textInput(form(""), CypherQuery.QUERY)
+@defining(if(query.isEmpty) "create" else "update") { actionMsg =>
+    @views.html.admin.layout.rightSidebar(Messages(s"cypherQuery.$actionMsg")) {
+        @helper.form(action = call, 'class -> "entity-form form-horizontal") {
+            @formHelpers.csrfToken()
+            @defining("cypherQuery") { implicit prefix =>
+                @formHelpers.lineInput(form(""), CypherQuery.NAME)
+                @formHelpers.textInput(form(""), CypherQuery.DESCRIPTION)
+                @formHelpers.checkbox(form(""), CypherQuery.PUBLIC)
+                @formHelpers.textInput(form(""), CypherQuery.QUERY)
+            }
+            <div class="form-actions">
+                <div class="form-group">
+                    <input type="button" id="test-query" class="btn btn-default progress-button" value="@Messages("cypherQuery.test")"/>
+                    <button type="submit" class="btn btn-post ">@Messages(s"cypherQuery.$actionMsg.submit")</button>
+                </div>
+            </div>
+        }
+        <hr/>
+        <div id="update-progress">
+        </div>
+    } {
+    }
 }
+

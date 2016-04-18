@@ -64,13 +64,13 @@ case class CypherQueries @Inject()(
   }
 
   def createQuery = AdminAction { implicit request =>
-    Ok(views.html.admin.cypherQueries.create(CypherQuery.form,
+    Ok(views.html.admin.cypherQueries.form(None, CypherQuery.form,
       controllers.cypher.routes.CypherQueries.createQueryPost()))
   }
 
   def createQueryPost = AdminAction.async { implicit request =>
     CypherQuery.form.bindFromRequest.fold(
-      errors => immediate(BadRequest(views.html.admin.cypherQueries.create(errors,
+      errors => immediate(BadRequest(views.html.admin.cypherQueries.form(None, errors,
         controllers.cypher.routes.CypherQueries.createQueryPost()))),
       queryModel => {
         cypherQueries.create(queryModel).map { _ =>
@@ -84,7 +84,7 @@ case class CypherQueries @Inject()(
   def updateQuery(id: String) = AdminAction.async { implicit request =>
     cypherQueries.get(id).map { query =>
       val f = CypherQuery.form.fill(query)
-      Ok(views.html.admin.cypherQueries.edit(query, f,
+      Ok(views.html.admin.cypherQueries.form(Some(query), f,
         controllers.cypher.routes.CypherQueries.updateQueryPost(id)))
     }
   }
@@ -92,7 +92,7 @@ case class CypherQueries @Inject()(
   def updateQueryPost(id: String) = AdminAction.async { implicit request =>
     CypherQuery.form.bindFromRequest.fold(
       errors => cypherQueries.get(id).map { query =>
-        BadRequest(views.html.admin.cypherQueries.edit(query, errors,
+        BadRequest(views.html.admin.cypherQueries.form(Some(query), errors,
         controllers.cypher.routes.CypherQueries.updateQueryPost(id)))
       },
       queryModel => {
