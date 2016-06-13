@@ -156,6 +156,13 @@ case class RestApiHandle(eventHandler: EventHandler)(
 
   private val genericItemUrl = enc(baseUrl, "entities")
 
+  override def getType[MT: Readable](t: String, id: String): Future[MT] = {
+    val url: String = enc(typeBaseUrl, t, id)
+    BackendRequest(url).withHeaders(authHeaders.toSeq: _*).get().map { response =>
+      checkErrorAndParse(response, context = Some(url))(implicitly[Readable[MT]].restReads)
+    }
+  }
+
   override def getAny[MT: Readable](id: String): Future[MT] = {
     val url: String = enc(genericItemUrl, id)
     BackendRequest(url).withHeaders(authHeaders.toSeq: _*).get().map { response =>

@@ -1,3 +1,5 @@
 # API V1 routes
 
-GET         /:et/:id                @controllers.portal.api.v1.ApiV1.get(et: defines.EntityType.Value, id: String)
+GET         /                       @controllers.portal.api.v1.ApiV1.types()
+GET         /:et                    @controllers.portal.api.v1.ApiV1.list(et: controllers.portal.api.v1.ApiSupportedType.Value)
+GET         /:et/:id                @controllers.portal.api.v1.ApiV1.get(et: controllers.portal.api.v1.ApiSupportedType.Value, id: String)

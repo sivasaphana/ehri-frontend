@@ -13,8 +13,11 @@ import play.api.mvc.RequestHeader
 
 package object json {
 
+  type UrlFinder = (String, String) => String
+
   private def urlFor[T<: AnyModel](t: T)(implicit request: RequestHeader): String =
     views.p.Helpers.linkTo(t).absoluteURL(false)
+
 
   implicit object datePeriodJson extends ClientWriteable[DatePeriodF] {
     def clientWrites(implicit request: RequestHeader): Writes[DatePeriodF] = Json.writes[DatePeriodF]
@@ -255,9 +258,12 @@ package object json {
     def clientWrites(implicit request: RequestHeader): Writes[VirtualUnit] = (
     JsPath.write[VirtualUnitF](Json.writes[VirtualUnitF]) and
       (__ \ "descriptions").writeSeqOrEmpty(documentaryUnitJson.clientWrites) and
-      (__ \ "author").writeNullable[Accessor](accessorJson.clientWrites) and
-      (__ \ "parent").lazyWriteNullable[VirtualUnit](clientWrites) and
-      (__ \ "holder").writeNullable[Repository](repositoryJson.clientWrites) and
+      (__ \ "author").writeNullable[String]
+        .contramap[Option[Accessor]](_.map(v => urlFor(v))) and
+      (__ \ "parent").writeNullable[String]
+        .contramap[Option[VirtualUnit]](_.map(v => urlFor(v))) and
+      (__ \ "holder").writeNullable[String]
+        .contramap[Option[Repository]](_.map(v => urlFor(v))) and
       (__ \ "accessibleTo").skipWrites[Seq[Accessor]] and
       (__ \ "event").writeNullable[SystemEvent](systemEventJson.clientWrites) and
       (__ \ "meta").skipWrites[JsValue]
