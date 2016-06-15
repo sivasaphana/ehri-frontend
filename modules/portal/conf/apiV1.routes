@@ -1,7 +1,6 @@
 # API V1 routes
 
-GET        /search                 @controllers.portal.api.v1.ApiV1.search(q: Option[String], skip: Int ?= 0, limit: Int ?= 100)
+GET        /                       @controllers.portal.api.v1.ApiV1.index()
+GET        /search                 @controllers.portal.api.v1.ApiV1.search(q: Option[String] ?= None, page: Int ?= 1)
 GET        /:id                    @controllers.portal.api.v1.ApiV1.fetch(id: String)
-GET        /:id/search             @controllers.portal.api.v1.ApiV1.searchIn(id: String, q: Option[String], skip: Int ?= 0, limit: Int ?= 100)
-GET        /:id/annotations        @controllers.portal.api.v1.ApiV1.annotations(id: String, skip: Int ?= 0, limit: Int ?= 100)
-GET        /:id/links              @controllers.portal.api.v1.ApiV1.links(id: String, skip: Int ?= 0, limit: Int ?= 100)
+GET        /:id/search             @controllers.portal.api.v1.ApiV1.searchIn(id: String, q: Option[String] ?= None, page: Int ?= 1)

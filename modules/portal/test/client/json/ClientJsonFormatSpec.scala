@@ -9,7 +9,7 @@ class ClientJsonFormatSpec extends PlaySpecification {
   // Needed for client JSON serialization, since output
   // contains URLs with context-dependent hostname etc
   implicit val fr = FakeRequest(GET, "/")
-  val user = UserProfile(UserProfileF(identifier = "bob", name = "Bob"))
+  val user = UserProfile(UserProfileF(id = Some("bob"), identifier = "bob", name = "Bob"))
 
   "client JSON conversion" should {
     // test Accessor and AnyModel conversions, since these unfortunately
