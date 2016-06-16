@@ -1,297 +1,30 @@
 package controllers.api.v1
 
+import java.util.concurrent.TimeUnit
 import javax.inject.{Singleton, Inject}
 
 import auth.AccountManager
-import backend.rest.ItemNotFound
+import backend.rest.{PermissionDenied, ItemNotFound}
 import backend.{AnonymousUser, DataApi}
+import models.api.v1.JsonApiV1._
 import controllers.base.{AuthConfigImpl, ControllerHelpers, CoreActionBuilders}
 import controllers.generic.Search
 import defines.EntityType
-import models._
 import models.base.AnyModel
+import models._
 import play.api.cache.CacheApi
 import play.api.http.HeaderNames
-import play.api.i18n.MessagesApi
+import play.api.i18n.{Messages, MessagesApi}
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc._
 import utils.Page
 import utils.search.{SearchConstants, SearchParams, SearchEngine, SearchItemResolver}
 
+import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{Future, ExecutionContext}
 import scala.concurrent.Future.{successful => immediate}
 
-
-case class DocumentaryUnitDescriptionAttrs(
-    localId: Option[String],
-    languageCode: String,
-    name: String,
-    parallelFormsOfName: Seq[String],
-    extentAndMedium: Option[String],
-    acquisition: Option[String],
-    archivalHistory: Option[String],
-    scopeAndContent: Option[String]
-)
-
-object DocumentaryUnitDescriptionAttrs {
-  implicit val writes = Json.writes[DocumentaryUnitDescriptionAttrs]
-
-  def apply(d: DocumentaryUnitDescriptionF): DocumentaryUnitDescriptionAttrs =
-    new DocumentaryUnitDescriptionAttrs(
-      d.localId,
-      d.languageCode,
-      d.name,
-      parallelFormsOfName = d.identity.parallelFormsOfName.getOrElse(Seq.empty),
-      extentAndMedium = d.identity.extentAndMedium,
-      acquisition = d.context.acquisition,
-      archivalHistory = d.context.archivalHistory,
-      scopeAndContent =  d.content.scopeAndContent
-    )
-}
-
-case class DocumentaryUnitAttrs(
-  localId: String,
-  alternateIds: Seq[String],
-  descriptions: Seq[DocumentaryUnitDescriptionAttrs]
-)
-
-object DocumentaryUnitAttrs {
-  implicit val writes = Json.writes[DocumentaryUnitAttrs]
-
-  def apply(d: DocumentaryUnit): DocumentaryUnitAttrs =
-    new DocumentaryUnitAttrs(
-      localId = d.model.identifier,
-      alternateIds = d.model.otherIdentifiers.getOrElse(Seq.empty),
-      descriptions = d.descriptions.map(DocumentaryUnitDescriptionAttrs.apply)
-    )
-}
-
-case class AddressAttrs(
-  name: Option[String],
-  contactPerson: Option[String] = None,
-  streetAddress: Option[String] = None,
-  city: Option[String] = None,
-  region: Option[String] = None,
-  postalCode: Option[String] = None,
-  countryCode: Option[String] = None,
-  email: Seq[String] = Nil,
-  telephone: Seq[String] = Nil,
-  fax: Seq[String] = Nil,
-  url: Seq[String] = Nil
-)
-
-object AddressAttrs {
-  implicit val writes = Json.writes[AddressAttrs]
-
-  def apply(a: AddressF) = new AddressAttrs(
-    a.name,
-    a.contactPerson,
-    a.streetAddress,
-    a.city,
-    a.region,
-    a.postalCode,
-    a.countryCode,
-    a.email,
-    a.telephone,
-    a.fax,
-    a.url
-  )
-}
-
-case class RepositoryAttrs(
-  name: Option[String] = None,
-  parallelFormsOfName: Option[Seq[String]] = None,
-  otherFormsOfName: Option[Seq[String]] = None,
-  address: Option[AddressAttrs] = None,
-  history: Option[String] = None,
-  generalContext: Option[String] = None,
-  mandates: Option[String] = None,
-  administrativeStructure: Option[String] = None,
-  records: Option[String] = None,
-  buildings: Option[String] = None,
-  holdings: Option[String] = None,
-  findingAids: Option[String] = None,
-  openingTimes: Option[String] = None,
-  conditions: Option[String] = None,
-  accessibility: Option[String] = None,
-  researchServices: Option[String] = None,
-  reproductionServices: Option[String] = None,
-  publicAreas: Option[String] = None
-)
-
-object RepositoryAttrs {
-  implicit val writes = Json.writes[RepositoryAttrs]
-  
-  def apply(r: Repository): RepositoryAttrs = {
-    r.descriptions.headOption.map { d =>
-      new RepositoryAttrs(
-        name = Some(d.name),
-        parallelFormsOfName = d.parallelFormsOfName,
-        otherFormsOfName = d.parallelFormsOfName,
-        address = d.addresses.headOption.map(a => AddressAttrs(a)),
-        history = d.details.history,
-        generalContext = d.details.generalContext,
-        mandates = d.details.mandates,
-        administrativeStructure = d.details.administrativeStructure,
-        records = d.details.records,
-        buildings = d.details.buildings,
-        holdings = d.details.holdings,
-        openingTimes = d.access.openingTimes,
-        conditions = d.access.conditions,
-        accessibility = d.access.accessibility,
-        researchServices = d.services.researchServices,
-        reproductionServices = d.services.reproductionServices,
-        publicAreas = d.services.publicAreas
-      )
-    }.getOrElse {
-      RepositoryAttrs()
-    }
-  }
-}
-
-case class DocumentaryUnitLinks(
-  self: String,
-  search: String,
-  holder: Option[String],
-  parent: Option[String]
-)
-
-object DocumentaryUnitLinks {
-  implicit val writes = Json.writes[DocumentaryUnitLinks]
-}
-
-case class DocumentaryUnitRelations(
-  holder: Option[JsValue],
-  parent: Option[JsValue]
-)
-
-object DocumentaryUnitRelations {
-  // Not using default writes here because missing (Optional)
-  // relations should be expressed using null
-  // http://jsonapi.org/format/#document-resource-object-related-resource-links
-  implicit val writes = new Writes[DocumentaryUnitRelations] {
-    def writes(r: DocumentaryUnitRelations): JsValue = Json.obj(
-      "holder" ->r.holder,
-      "parent" -> r.parent
-    )
-  }
-}
-
-case class HistoricalAgentAttrs(
-  datesOfExistence: Option[String] = None,
-  history: Option[String] = None,
-  places: Option[Seq[String]] = None,
-  legalStatus: Option[Seq[String]] = None,
-  functions: Option[Seq[String]] = None,
-  mandates: Option[Seq[String]] = None,
-  internalStructure: Option[String] = None,
-  generalContext: Option[String] = None
-)
-
-object HistoricalAgentAttrs {
-  implicit val writes = Json.writes[HistoricalAgentAttrs]
-
-  def apply(a: HistoricalAgent): HistoricalAgentAttrs = {
-    a.descriptions.headOption.map { d =>
-      new HistoricalAgentAttrs(
-        datesOfExistence = d.details.datesOfExistence,
-        history = d.details.history,
-        places = d.details.places,
-        legalStatus = d.details.legalStatus,
-        functions = d.details.functions,
-        mandates = d.details.mandates,
-        internalStructure = d.details.internalStructure,
-        generalContext = d.details.generalContext
-      )
-    }.getOrElse {
-      HistoricalAgentAttrs()
-    }
-  }
-}
-
-case class RepositoryLinks(
-  self: String,
-  search: String,
-  country: Option[String]
-)
-
-object RepositoryLinks {
-  implicit val writes = Json.writes[RepositoryLinks]
-}
-
-case class RepositoryRelations(
-  country: Option[JsValue]
-)
-
-object RepositoryRelations {
-  implicit val writes = Json.writes[RepositoryRelations]
-}
-
-case class CountryAttrs(
-  identifier: String,
-  `abstract`: Option[String],
-  history: Option[String],
-  situation: Option[String],
-  summary: Option[String],
-  extensive: Option[String]
-)
-
-object CountryAttrs {
-  implicit val writes = Json.writes[CountryAttrs]
-
-  def apply(c: Country)(implicit requestHeader: RequestHeader): CountryAttrs =
-    new CountryAttrs(
-      identifier = c.model.identifier,
-      `abstract` = c.model.abs,
-      history = c.model.history,
-      situation = c.model.situation,
-      summary = c.model.summary,
-      extensive = c.model.extensive
-    )
-}
-
-case class CountryLinks(
-  self: String,
-  search: String
-)
-
-object CountryLinks {
-  implicit val writes = Json.writes[CountryLinks]
-}
-
-case class JsonApiResponse(
-  data: JsValue,
-  links: Option[JsValue] = None,
-  included: Option[JsValue] = None
-)
-
-object JsonApiResponse {
-  implicit val writes = Json.writes[JsonApiResponse]
-}
-
-case class JsonApiResponseData(
-  id: String,
-  `type`: String,
-  attributes: JsValue,
-  relationships: Option[JsValue] = None,
-  links: Option[JsValue] = None
-)
-
-object JsonApiResponseData {
-  implicit val writes = Json.writes[JsonApiResponseData]
-}
-
-case class ResourceIdentifier(
-  id: String,
-  `type`: String
-)
-
-object ResourceIdentifier {
-  implicit val writes = Json.writes[ResourceIdentifier]
-
-  def apply(m: AnyModel) = new ResourceIdentifier(m.id, m.isA.toString)
-}
 
 @Singleton
 case class ApiV1 @Inject()(
@@ -312,8 +45,11 @@ case class ApiV1 @Inject()(
 
   private final val JSONAPI_MIMETYPE = "application/vnd.api+json"
 
-  implicit val apiUser = AnonymousUser
-  implicit val userOpt: Option[UserProfile] = None
+  private implicit val apiUser = AnonymousUser
+  private implicit val userOpt: Option[UserProfile] = None
+
+  private val hitsPerSecond = 1000 // basically, no limit at the moment
+  private val rateLimitTimeoutDuration: FiniteDuration = Duration(3600, TimeUnit.SECONDS)
 
   private val apiRoutes = controllers.api.v1.routes.ApiV1
   private val apiSupportedEntities = Seq(
@@ -323,27 +59,27 @@ case class ApiV1 @Inject()(
     EntityType.Country
   )
 
-  private def error(status: Int, message: String): Result =
+  private def error(status: Int, message: Option[String] = None): Result =
     Status(status)(errorJson(status, message))
 
-  private def errorJson(status: Int, message: String): JsObject = Json.obj(
-    "errors" -> Json.arr(
-      Json.obj(
-        "status" -> status.toString,
-        "detail" -> message
+  private def errorJson(status: Int, message: Option[String] = None): JsObject = {
+    val title: String = message.getOrElse(Messages(s"api.error.$status"))
+    Json.obj(
+      "errors" -> Json.arr(
+        Json.obj(
+          "status" -> status.toString,
+          "title" -> title
+        )
       )
     )
-  )
+  }
 
   private def checkRateLimit[A](request: Request[A]): Boolean = true // placeholder
 
   private object RateLimit extends ActionBuilder[Request] {
     override def invokeBlock[A](request: Request[A], block: (Request[A]) => Future[Result]): Future[Result] = {
-      if (request.method != "POST") block(request)
-      else {
-        if (checkRateLimit(request)) block(request)
-        else immediate(error(TOO_MANY_REQUESTS, "Too many requests"))
-      }
+      if (checkRateLimit(hitsPerSecond, rateLimitTimeoutDuration)(request)) block(request)
+      else immediate(error(TOO_MANY_REQUESTS))
     }
   }
 
@@ -351,7 +87,7 @@ case class ApiV1 @Inject()(
     override protected def filter[A](request: Request[A]): Future[Option[Result]] = {
       if (request.headers.getAll(HeaderNames.CONTENT_TYPE).contains(JSONAPI_MIMETYPE))
         immediate(None)
-      else immediate(Some(error(UNSUPPORTED_MEDIA_TYPE, "Unsupported media type")))
+      else immediate(Some(error(UNSUPPORTED_MEDIA_TYPE)))
     }
   }
 
@@ -361,7 +97,7 @@ case class ApiV1 @Inject()(
       val accept: Seq[String] = request.headers.getAll(HeaderNames.ACCEPT).filter(a =>
         a.startsWith(JSONAPI_MIMETYPE))
       if (accept.isEmpty || accept.contains(JSONAPI_MIMETYPE)) immediate(None)
-      else immediate(Some(error(NOT_ACCEPTABLE, "Not acceptable")))
+      else immediate(Some(error(NOT_ACCEPTABLE)))
     }
   }
 
@@ -497,7 +233,7 @@ case class ApiV1 @Inject()(
         "first" -> urlFunc(1),
         "last" -> urlFunc(page.numPages),
         "prev" -> (if (page.page == 1) Option.empty[String]
-        else Some(urlFunc(page.page - 1))),
+              else Some(urlFunc(page.page - 1))),
         "next" -> (if (!page.hasMore) Option.empty[String]
         else Some(urlFunc(page.page + 1)))
       )
@@ -525,7 +261,7 @@ case class ApiV1 @Inject()(
     ).as(JSONAPI_MIMETYPE)
   }
 
-  def search(q: Option[String], page: Int) = Action.async { implicit request =>
+  def search(q: Option[String], page: Int) = JsonApiAction.async { implicit request =>
     val types = request.queryString.getOrElse("type", Seq.empty)
     find[AnyModel](
       defaultParams = SearchParams(query = q, page = Some(page)),
@@ -537,7 +273,7 @@ case class ApiV1 @Inject()(
     }
   }
 
-  def fetch(id: String) = Action.async { implicit request =>
+  def fetch(id: String) = JsonApiAction.async { implicit request =>
     userDataApi.getAny[AnyModel](id).map { item =>
       Ok(
         Json.toJson(
@@ -548,11 +284,12 @@ case class ApiV1 @Inject()(
         )
       ).as(JSONAPI_MIMETYPE)
     } recover {
-      case e: ItemNotFound => NotFound(errorJson(404, e.message.getOrElse(id)))
+      case e: ItemNotFound => error(NOT_FOUND, e.message)
+      case e: PermissionDenied => error(FORBIDDEN)
     }
   }
 
-  def searchIn(id: String, q: Option[String], page: Int) = Action.async { implicit request =>
+  def searchIn(id: String, q: Option[String], page: Int) = JsonApiAction.async { implicit request =>
     userDataApi.getAny[AnyModel](id).flatMap { item =>
       find[AnyModel](
         filters = Map(searchFilterKey(item) -> id),
@@ -563,27 +300,30 @@ case class ApiV1 @Inject()(
           p => apiRoutes.searchIn(id, q, p).absoluteURL(), Some(included(item)))
         ).as(JSONAPI_MIMETYPE)
       }
+    } recover {
+      case e: ItemNotFound => error(NOT_FOUND, e.message)
+      case e: PermissionDenied => error(FORBIDDEN)
     }
   }
 
   override def authenticationFailed(request: RequestHeader)(implicit context: ExecutionContext): Future[Result] =
-    immediate(Unauthorized("not authenticated"))
+    immediate(error(UNAUTHORIZED))
 
   override def authorizationFailed(request: RequestHeader,user: UserProfile)(implicit context: ExecutionContext): Future[Result] =
-    immediate(error(FORBIDDEN, "Unauthorized"))
+    immediate(error(FORBIDDEN))
 
   override def authorizationFailed(request: RequestHeader, user: User, authority: Option[Authority])(implicit context: ExecutionContext): Future[Result] =
-    immediate(error(FORBIDDEN, "Unauthorized"))
+    immediate(error(FORBIDDEN))
 
-  protected def downForMaintenance(request: RequestHeader)(implicit context: ExecutionContext): Future[Result] =
-    immediate(error(SERVICE_UNAVAILABLE, "Unavailable"))
+  override def downForMaintenance(request: RequestHeader)(implicit context: ExecutionContext): Future[Result] =
+    immediate(error(SERVICE_UNAVAILABLE))
 
   override protected def notFoundError(request: RequestHeader,msg: Option[String])(implicit context: ExecutionContext): Future[Result] =
-    immediate(error(NOT_FOUND, msg.getOrElse("Not Found")))
+    immediate(error(NOT_FOUND, msg))
 
   override def staffOnlyError(request: RequestHeader)(implicit context: ExecutionContext): Future[Result] =
-    immediate(error(FORBIDDEN, "Unauthorized (staff only)"))
+    immediate(error(FORBIDDEN))
 
   override def verifiedOnlyError(request: RequestHeader)(implicit context: ExecutionContext): Future[Result] =
-    immediate(error(FORBIDDEN, "Unauthorized (staff only)"))
+    immediate(error(FORBIDDEN))
 }
