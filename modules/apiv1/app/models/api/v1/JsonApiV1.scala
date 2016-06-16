@@ -7,6 +7,8 @@ import play.api.mvc.RequestHeader
 
 object JsonApiV1 {
 
+  final val JSONAPI_MIMETYPE = "application/vnd.api+json"
+
   case class DocumentaryUnitDescriptionAttrs(
     localId: Option[String],
     languageCode: String,
