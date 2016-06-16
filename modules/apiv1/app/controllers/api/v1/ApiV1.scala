@@ -43,8 +43,6 @@ case class ApiV1 @Inject()(
   with AuthConfigImpl
   with Search {
 
-  private final val JSONAPI_MIMETYPE = "application/vnd.api+json"
-
   private implicit val apiUser = AnonymousUser
   private implicit val userOpt: Option[UserProfile] = None
 
@@ -210,35 +208,23 @@ case class ApiV1 @Inject()(
     case _ => SearchConstants.PARENT_ID
   }
 
-  private def includeKey(any: AnyModel): Option[String] = any match {
-    case repo: Repository => Some("holder")
-    case country: Country => Some("country")
-    case doc: DocumentaryUnit => Some("parent")
-    case _ => None
-  }
-
-  private def included(item: AnyModel)(implicit requestHeader: RequestHeader): JsValue =
-    includeKey(item).map { key =>
-      Json.obj(key -> Json.arr(item))
-    }.getOrElse {
-      Json.obj()
-    }
-
   private def pageJson[T <: AnyModel](page: Page[T],
                                       urlFunc: Int => String,
-                                      includedData: Option[JsValue] = None)(implicit w: Writes[T]): JsObject = {
+                                      included: Seq[AnyModel] = Seq.empty)(implicit w: Writes[AnyModel]): JsObject = {
     val json = Json.obj(
       "data" -> page.items,
-      "links" -> Json.obj(
-        "first" -> urlFunc(1),
-        "last" -> urlFunc(page.numPages),
-        "prev" -> (if (page.page == 1) Option.empty[String]
-              else Some(urlFunc(page.page - 1))),
-        "next" -> (if (!page.hasMore) Option.empty[String]
-        else Some(urlFunc(page.page + 1)))
+      "links" -> PaginationLinks(
+        first = urlFunc(1),
+        last = urlFunc(page.numPages),
+        prev = if (page.page == 1) Option.empty[String]
+          else Some(urlFunc(page.page - 1)),
+        next = if (!page.hasMore) Option.empty[String]
+          else Some(urlFunc(page.page + 1))
       )
     )
-    includedData.fold(json)(inc => json.deepMerge(Json.obj("included" -> inc)))
+    if (included.nonEmpty)
+      json + ("included" -> Json.toJson(included))
+    else json
   }
 
   def index() = JsonApiAction { implicit request =>
@@ -266,7 +252,7 @@ case class ApiV1 @Inject()(
     find[AnyModel](
       defaultParams = SearchParams(query = q, page = Some(page)),
       entities = apiSupportedEntities.filter(e => types.isEmpty ||
-        types.exists(_.toString.toLowerCase == e.toString.toLowerCase()))
+        types.exists(_.toString.toLowerCase == e.toString.toLowerCase))
     ).map { r =>
       Ok(pageJson(r.mapItems(_._1).page, p => apiRoutes.search(q, p).absoluteURL()))
         .as(JSONAPI_MIMETYPE)
@@ -297,7 +283,7 @@ case class ApiV1 @Inject()(
         entities = apiSupportedEntities
       ).map { r =>
         Ok(pageJson(r.mapItems(_._1).page,
-          p => apiRoutes.searchIn(id, q, p).absoluteURL(), Some(included(item)))
+          p => apiRoutes.searchIn(id, q, p).absoluteURL(), Seq(item))
         ).as(JSONAPI_MIMETYPE)
       }
     } recover {
