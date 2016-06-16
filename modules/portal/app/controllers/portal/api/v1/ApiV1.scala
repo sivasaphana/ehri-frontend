@@ -1,6 +1,6 @@
 package controllers.portal.api.v1
 
-import javax.inject.Inject
+import javax.inject.{Singleton, Inject}
 
 import auth.AccountManager
 import backend.rest.ItemNotFound
@@ -293,6 +293,7 @@ object ResourceIdentifier {
   def apply(m: AnyModel) = new ResourceIdentifier(m.id, m.isA.toString)
 }
 
+@Singleton
 case class ApiV1 @Inject()(
   implicit config: play.api.Configuration,
   cache: CacheApi,
