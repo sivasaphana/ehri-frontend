@@ -4,6 +4,7 @@
 
 # Defer other routes to modules
 -> /                    portal.Routes
+-> /api/v1              apiv1.Routes
 -> /guides              guides.Routes
 
 # Admin routes

@@ -1,6 +1,6 @@
-package controllers.portal.api.v1
+package controllers.api.v1
 
-import javax.inject.Inject
+import javax.inject.{Singleton, Inject}
 
 import auth.AccountManager
 import backend.rest.ItemNotFound
@@ -16,7 +16,7 @@ import play.api.i18n.MessagesApi
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc._
-import utils.{Page, MovedPageLookup}
+import utils.Page
 import utils.search.{SearchConstants, SearchParams, SearchEngine, SearchItemResolver}
 
 import scala.concurrent.{Future, ExecutionContext}
@@ -293,6 +293,7 @@ object ResourceIdentifier {
   def apply(m: AnyModel) = new ResourceIdentifier(m.id, m.isA.toString)
 }
 
+@Singleton
 case class ApiV1 @Inject()(
   implicit config: play.api.Configuration,
   cache: CacheApi,
@@ -301,7 +302,6 @@ case class ApiV1 @Inject()(
   searchResolver: SearchItemResolver,
   dataApi: DataApi,
   accounts: AccountManager,
-  pageRelocator: MovedPageLookup,
   messagesApi: MessagesApi,
   ws: WSClient,
   executionContext: ExecutionContext
@@ -315,7 +315,7 @@ case class ApiV1 @Inject()(
   implicit val apiUser = AnonymousUser
   implicit val userOpt: Option[UserProfile] = None
 
-  private val apiRoutes = controllers.portal.api.v1.routes.ApiV1
+  private val apiRoutes = controllers.api.v1.routes.ApiV1
   private val apiSupportedEntities = Seq(
     EntityType.DocumentaryUnit,
     EntityType.Repository,
