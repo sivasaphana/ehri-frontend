@@ -5,10 +5,9 @@ import javax.inject.Inject
 import auth.AccountManager
 import backend.rest.ItemNotFound
 import backend.{AnonymousUser, DataApi}
-import controllers.base.{ControllerHelpers, CoreActionBuilders}
+import controllers.base.{AuthConfigImpl, ControllerHelpers, CoreActionBuilders}
 import controllers.generic.Search
-import controllers.portal.base.PortalAuthConfigImpl
-import defines.{EnumUtils, EnumerationBinders, EntityType}
+import defines.EntityType
 import models._
 import models.base.AnyModel
 import play.api.cache.CacheApi
@@ -17,22 +16,12 @@ import play.api.i18n.MessagesApi
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc._
-import utils.MovedPageLookup
+import utils.{Page, MovedPageLookup}
 import utils.search.{SearchConstants, SearchParams, SearchEngine, SearchItemResolver}
 
 import scala.concurrent.{Future, ExecutionContext}
 import scala.concurrent.Future.{successful => immediate}
 
-object ApiSupportedType extends Enumeration {
-  val DocumentaryUnit = Value(EntityType.DocumentaryUnit.toString)
-  val Repository = Value(EntityType.Repository.toString)
-  val HistoricalAgent = Value(EntityType.HistoricalAgent.toString)
-  val Country = Value(EntityType.Country.toString)
-  val SystemEvent = Value(EntityType.SystemEvent.toString)
-
-  implicit val _writes = EnumUtils.enumFormat(this)
-  implicit val _binder = EnumerationBinders.bindableEnum(ApiSupportedType)
-}
 
 case class DocumentaryUnitDescriptionAttrs(
     localId: Option[String],
@@ -318,7 +307,7 @@ case class ApiV1 @Inject()(
   executionContext: ExecutionContext
 ) extends CoreActionBuilders
   with ControllerHelpers
-  with PortalAuthConfigImpl
+  with AuthConfigImpl
   with Search {
 
   private final val JSONAPI_MIMETYPE = "application/vnd.api+json"
@@ -334,14 +323,26 @@ case class ApiV1 @Inject()(
     EntityType.Country
   )
 
+  private def error(status: Int, message: String): Result =
+    Status(status)(errorJson(status, message))
+
+  private def errorJson(status: Int, message: String): JsObject = Json.obj(
+    "errors" -> Json.arr(
+      Json.obj(
+        "status" -> status.toString,
+        "detail" -> message
+      )
+    )
+  )
+
   private def checkRateLimit[A](request: Request[A]): Boolean = true // placeholder
 
-  object RateLimit extends ActionBuilder[Request] {
+  private object RateLimit extends ActionBuilder[Request] {
     override def invokeBlock[A](request: Request[A], block: (Request[A]) => Future[Result]): Future[Result] = {
       if (request.method != "POST") block(request)
       else {
         if (checkRateLimit(request)) block(request)
-        else immediate(TooManyRequests(makeError(429, "Too many requests")))
+        else immediate(error(TOO_MANY_REQUESTS, "Too many requests"))
       }
     }
   }
@@ -350,7 +351,7 @@ case class ApiV1 @Inject()(
     override protected def filter[A](request: Request[A]): Future[Option[Result]] = {
       if (request.headers.getAll(HeaderNames.CONTENT_TYPE).contains(JSONAPI_MIMETYPE))
         immediate(None)
-      else immediate(Some(UnsupportedMediaType(makeError(415, "Unsupported media type"))))
+      else immediate(Some(error(UNSUPPORTED_MEDIA_TYPE, "Unsupported media type")))
     }
   }
 
@@ -360,23 +361,13 @@ case class ApiV1 @Inject()(
       val accept: Seq[String] = request.headers.getAll(HeaderNames.ACCEPT).filter(a =>
         a.startsWith(JSONAPI_MIMETYPE))
       if (accept.isEmpty || accept.contains(JSONAPI_MIMETYPE)) immediate(None)
-      else immediate(Some(NotAcceptable(makeError(406, "Not acceptable"))))
+      else immediate(Some(error(NOT_ACCEPTABLE, "Not acceptable")))
     }
   }
 
   private def JsonApiAction = RateLimit andThen
       JsonApiCheckContentTypeFilter andThen
       JsonApiCheckAcceptFilter
-
-
-  private def makeError(status: Int, message: String): JsObject = Json.obj(
-    "errors" -> Json.arr(
-      Json.obj(
-        "status" -> status.toString,
-        "detail" -> message
-      )
-    )
-  )
 
   implicit def anyModelWrites(implicit request: RequestHeader): Writes[AnyModel] = new Writes[AnyModel] {
     override def writes(any: AnyModel): JsValue = any match {
@@ -465,7 +456,7 @@ case class ApiV1 @Inject()(
     }
   }
 
-  def includedData(any: AnyModel)(implicit requestHeader: RequestHeader): Option[JsValue] = any match {
+  private def includedData(any: AnyModel)(implicit requestHeader: RequestHeader): Option[JsValue] = any match {
     case doc: DocumentaryUnit => Some(
       Json.toJson(
         Seq[Option[AnyModel]](
@@ -475,59 +466,6 @@ case class ApiV1 @Inject()(
       )(Writes.seq(anyModelWrites))
     )
     case _ => None
-  }
-
-  def index() = JsonApiAction { implicit request =>
-    // describe possible actions here...
-    Ok(
-      Json.obj(
-        "meta" -> Json.obj(
-          "name" -> "EHRI API V1",
-          "status" -> "ALPHA: Do not use for production"
-        ),
-        "jsonapi" -> Json.obj(
-          "version" -> "1.0"
-        )
-      )
-    ).as(JSONAPI_MIMETYPE)
-  }
-
-  def search(q: Option[String], page: Int) = Action.async { implicit request =>
-    val types = request.queryString.getOrElse("type", Seq.empty)
-    find[AnyModel](
-      defaultParams = SearchParams(query = q, page = Some(page)),
-      entities = apiSupportedEntities.filter(e => types.isEmpty ||
-        types.exists(_.toString.toLowerCase == e.toString.toLowerCase()))
-    ).map { r =>
-      Ok(
-        Json.obj(
-          "data" -> r.page.items.map(_._1),
-          "links" -> Json.obj(
-            "first" -> apiRoutes.search(q, 1).absoluteURL(),
-            "last" -> apiRoutes.search(q, r.page.numPages).absoluteURL(),
-            "prev" -> (if (page == 1) Option.empty[String]
-              else Some(apiRoutes.search(q, page - 1).absoluteURL())),
-            "next" -> (if (page == r.page.numPages) Option.empty[String]
-              else Some(apiRoutes.search(q, page + 1).absoluteURL()))
-          )
-        )
-      ).as(JSONAPI_MIMETYPE)
-    }
-  }
-
-  def fetch(id: String) = Action.async { implicit request =>
-    userDataApi.getAny[AnyModel](id).map { item =>
-      Ok(
-        Json.toJson(
-          JsonApiResponse(
-            data = Json.toJson(item),
-            included = includedData(item)
-          )
-        )
-      ).as(JSONAPI_MIMETYPE)
-    } recover {
-      case e: ItemNotFound => NotFound(makeError(404, e.message.getOrElse(id)))
-    }
   }
 
   private def searchFilterKey(any: AnyModel): String = any match {
@@ -550,6 +488,70 @@ case class ApiV1 @Inject()(
       Json.obj()
     }
 
+  private def pageJson[T <: AnyModel](page: Page[T],
+                                      urlFunc: Int => String,
+                                      includedData: Option[JsValue] = None)(implicit w: Writes[T]): JsObject = {
+    val json = Json.obj(
+      "data" -> page.items,
+      "links" -> Json.obj(
+        "first" -> urlFunc(1),
+        "last" -> urlFunc(page.numPages),
+        "prev" -> (if (page.page == 1) Option.empty[String]
+        else Some(urlFunc(page.page - 1))),
+        "next" -> (if (!page.hasMore) Option.empty[String]
+        else Some(urlFunc(page.page + 1)))
+      )
+    )
+    includedData.fold(json)(inc => json.deepMerge(Json.obj("included" -> inc)))
+  }
+
+  def index() = JsonApiAction { implicit request =>
+    // describe possible actions here...
+    Ok(
+      Json.obj(
+        "meta" -> Json.obj(
+          "name" -> "EHRI API V1",
+          "routes" -> Json.obj(
+            "search" -> (apiRoutes.search().absoluteURL() + "?[q=Text Query]"),
+            "fetch" -> apiRoutes.fetch("ITEM-ID").absoluteURL(),
+            "search-in" -> (apiRoutes.searchIn("ITEM-ID").absoluteURL() + "?[q=Text Query]")
+          ),
+          "status" -> "ALPHA: Do not use for production"
+        ),
+        "jsonapi" -> Json.obj(
+          "version" -> "1.0"
+        )
+      )
+    ).as(JSONAPI_MIMETYPE)
+  }
+
+  def search(q: Option[String], page: Int) = Action.async { implicit request =>
+    val types = request.queryString.getOrElse("type", Seq.empty)
+    find[AnyModel](
+      defaultParams = SearchParams(query = q, page = Some(page)),
+      entities = apiSupportedEntities.filter(e => types.isEmpty ||
+        types.exists(_.toString.toLowerCase == e.toString.toLowerCase()))
+    ).map { r =>
+      Ok(pageJson(r.mapItems(_._1).page, p => apiRoutes.search(q, p).absoluteURL()))
+        .as(JSONAPI_MIMETYPE)
+    }
+  }
+
+  def fetch(id: String) = Action.async { implicit request =>
+    userDataApi.getAny[AnyModel](id).map { item =>
+      Ok(
+        Json.toJson(
+          JsonApiResponse(
+            data = Json.toJson(item),
+            included = includedData(item)
+          )
+        )
+      ).as(JSONAPI_MIMETYPE)
+    } recover {
+      case e: ItemNotFound => NotFound(errorJson(404, e.message.getOrElse(id)))
+    }
+  }
+
   def searchIn(id: String, q: Option[String], page: Int) = Action.async { implicit request =>
     userDataApi.getAny[AnyModel](id).flatMap { item =>
       find[AnyModel](
@@ -557,36 +559,31 @@ case class ApiV1 @Inject()(
         defaultParams = SearchParams(query = q, page = Some(page)),
         entities = apiSupportedEntities
       ).map { r =>
-        Ok(
-          Json.obj(
-            "data" -> r.page.items.map(_._1),
-            "links" -> Json.obj(
-              "first" -> apiRoutes.searchIn(id, q, 1).absoluteURL(),
-              "last" -> apiRoutes.searchIn(id, q, r.page.numPages).absoluteURL(),
-              "prev" -> (if (page == 1) Option.empty[String]
-              else Some(apiRoutes.searchIn(id, q, page - 1).absoluteURL())),
-              "next" -> (if (page == r.page.numPages) Option.empty[String]
-              else Some(apiRoutes.searchIn(id, q, page + 1).absoluteURL()))
-            ),
-            "included" -> included(item)
-          )
+        Ok(pageJson(r.mapItems(_._1).page,
+          p => apiRoutes.searchIn(id, q, p).absoluteURL(), Some(included(item)))
         ).as(JSONAPI_MIMETYPE)
       }
     }
   }
 
-  protected def authorizationFailed(request: RequestHeader,user: UserProfile)(implicit context: ExecutionContext): Future[Result] =
-    immediate(Unauthorized(makeError(401, "Unauthorized (staff only)")))
+  override def authenticationFailed(request: RequestHeader)(implicit context: ExecutionContext): Future[Result] =
+    immediate(Unauthorized("not authenticated"))
+
+  override def authorizationFailed(request: RequestHeader,user: UserProfile)(implicit context: ExecutionContext): Future[Result] =
+    immediate(error(FORBIDDEN, "Unauthorized"))
+
+  override def authorizationFailed(request: RequestHeader, user: User, authority: Option[Authority])(implicit context: ExecutionContext): Future[Result] =
+    immediate(error(FORBIDDEN, "Unauthorized"))
 
   protected def downForMaintenance(request: RequestHeader)(implicit context: ExecutionContext): Future[Result] =
-    immediate(ServiceUnavailable(makeError(503, "Unavailable")))
+    immediate(error(SERVICE_UNAVAILABLE, "Unavailable"))
 
-  protected def notFoundError(request: RequestHeader,msg: Option[String])(implicit context: ExecutionContext): Future[Result] =
-    immediate(NotFound(makeError(404, msg.getOrElse("Not Found"))))
+  override protected def notFoundError(request: RequestHeader,msg: Option[String])(implicit context: ExecutionContext): Future[Result] =
+    immediate(error(NOT_FOUND, msg.getOrElse("Not Found")))
 
-  protected def staffOnlyError(request: RequestHeader)(implicit context: ExecutionContext): Future[Result] =
-    immediate(Forbidden(makeError(403, "Unauthorized (staff only)")))
+  override def staffOnlyError(request: RequestHeader)(implicit context: ExecutionContext): Future[Result] =
+    immediate(error(FORBIDDEN, "Unauthorized (staff only)"))
 
-  protected def verifiedOnlyError(request: RequestHeader)(implicit context: ExecutionContext): Future[Result] =
-    immediate(Forbidden(makeError(403, "Unauthorized (staff only)")))
+  override def verifiedOnlyError(request: RequestHeader)(implicit context: ExecutionContext): Future[Result] =
+    immediate(error(FORBIDDEN, "Unauthorized (staff only)"))
 }
