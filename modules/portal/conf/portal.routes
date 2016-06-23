@@ -3,6 +3,7 @@
 ->          /                                     account.Routes
 ->          /notes                                annotate.Routes
 ->          /profile                              profile.Routes
+->          /widgets                              widgets.Routes
 ->          /people                               social.Routes
 
 GET         /                                     @controllers.portal.Portal.index

@@ -1,0 +1,4 @@
+
+
+GET        /units/:id                @controllers.portal.widgets.Widgets.embedDocumentaryUnit(id: String)
+GET        /institutions/:id         @controllers.portal.widgets.Widgets.embedRepository(id: String)

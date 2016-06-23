@@ -1,0 +1,25 @@
+@(title: Any, itemClass: String = "", url: Option[Call] = None)(content: Html)(implicit userOpt: Option[UserProfile], request: RequestHeader, globalConfig: global.GlobalConfig, messages: Messages, md: views.MarkdownRenderer)
+
+<!DOCTYPE html>
+
+@fsstyles = {
+    <link rel="stylesheet" href="@controllers.portal.routes.PortalAssets.versioned("css/fullscreen.css")">
+}
+
+<html lang="@messages.lang.code">
+        @views.html.layout.head(title, styles = fsstyles)
+        <body class="@itemClass">
+            @views.html.layout.preambleScripts()
+            <div id="wrap">
+                <div class="page-content">
+                    @content
+                    <div id="push"></div>
+                </div>
+            </div>
+            <footer id="fullscreen-footer" class="footer sticky">
+                <a id="open-in-portal" class="external" target="_blank"
+                        href="@url.map(_.absoluteURL(globalConfig.https)).getOrElse(globalConfig.absolutePath)">@Messages("fullscreen.viewOnPortal")</a>
+            </footer>
+            @views.html.layout.postambleScripts()
+        </body>
+</html>
